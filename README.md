@@ -23,7 +23,7 @@ std::cout << "\nReady: " << result;
 AlienFX_SDK::Functions::SetColor(AlienFX_SDK::Index::AlienFX_leftZone, 225, 134, 245);
 AlienFX_SDK::Functions::SetColor(AlienFX_SDK::Index::AlienFX_rightZone, 25, 114, 245);
 
-//This is important to apply the updated color changes.
+//This is important to apply the updated color changes. Should only be called once after you're done with new colors.
 AlienFX_SDK::Functions::UpdateColors();
 ```
 
