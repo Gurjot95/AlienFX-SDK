@@ -7,14 +7,14 @@ This SDK not only fixes up its issue and performs better but is written from scr
 Please checkout Sample App for reference.
 
 ### Initialization
-```
+```C#
 //Returns PID value if init is successful or -1 if failed. Takes Vendor ID as argument.
 int isInit = AlienFX_SDK::Functions::AlienFXInitialize(AlienFX_SDK::vid);
 
 ```
 
 ### Set Color
-```
+```C#
 //Make sure your device is ready to process new instructions before updating color
 bool result = AlienFX_SDK::Functions::IsDeviceReady();
 std::cout << "\nReady: " << result; 
@@ -23,7 +23,7 @@ std::cout << "\nReady: " << result;
 AlienFX_SDK::Functions::SetColor(AlienFX_SDK::Index::AlienFX_leftZone, 225, 134, 245);
 AlienFX_SDK::Functions::SetColor(AlienFX_SDK::Index::AlienFX_rightZone, 25, 114, 245);
 
-//This is important to call to apply the updated colors.
+//This is important to apply the updated color changes.
 AlienFX_SDK::Functions::UpdateColors();
 ```
 
