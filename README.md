@@ -6,14 +6,14 @@ This SDK not only fixes up its issue and performs better but is written from scr
 
 Please checkout Sample App for reference.
 
-## Initialization
+### Initialization
 ```
 //Returns PID value if init is successful or -1 if failed. Takes Vendor ID as argument.
 int isInit = AlienFX_SDK::Functions::AlienFXInitialize(AlienFX_SDK::vid);
 
 ```
 
-## Set Color
+### Set Color
 ```
 //Make sure your device is ready to process new instructions before updating color
 bool result = AlienFX_SDK::Functions::IsDeviceReady();
@@ -29,4 +29,4 @@ AlienFX_SDK::Functions::UpdateColors();
 
 #### Projects using this SDK
 
-[Project Aurora] (https://github.com/antonpup/Aurora)
+[Project Aurora](https://github.com/antonpup/Aurora).
