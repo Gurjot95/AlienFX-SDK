@@ -6,6 +6,8 @@ This SDK not only fixes up its issue and performs better but is written from scr
 
 Please checkout Sample App for reference.
 
+**Currently tested on AW13/R3, AW15R2/R3, AW17R3/R4 but should be working with all alienware laptops**
+
 ### Initialization
 ```C++
 //Returns PID value if init is successful or -1 if failed. Takes Vendor ID as argument.
