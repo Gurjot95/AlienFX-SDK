@@ -37,3 +37,7 @@ AlienFX_SDK::Functions::UpdateColors();
 #### Projects using this SDK
 
 [Project Aurora](https://github.com/antonpup/Aurora).
+
+##Special Thanks
+Special Thanks:
+Thanks go to Ingrater (http://3d.benjamin-thaut.de/) for his work on AlienFX and providing the protocol for me to work on.
