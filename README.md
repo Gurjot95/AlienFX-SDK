@@ -10,10 +10,15 @@ Please checkout Sample App for reference.
 
 ### Initialization
 ```C++
+
+/This is VID for all alienware laptops, use this while initializing, it might be different for external AW device like mouse/kb
+	int vid = 0x187c;
+  
 //Returns PID value if init is successful or -1 if failed. Takes Vendor ID as argument.
 int isInit = AlienFX_SDK::Functions::AlienFXInitialize(AlienFX_SDK::vid);
 
 ```
+
 
 ### Set Color
 ```C++
