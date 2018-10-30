@@ -34,7 +34,7 @@ AlienFX_SDK::Functions::SetColor(AlienFX_SDK::Index::AlienFX_rightZone, 25, 114,
 AlienFX_SDK::Functions::UpdateColors();
 ```
 
-#### Projects using this SDK
+### Projects using this SDK
 
 [Project Aurora](https://github.com/antonpup/Aurora).
 
