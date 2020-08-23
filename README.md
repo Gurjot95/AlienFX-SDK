@@ -33,6 +33,8 @@ AlienFX_SDK::Functions::SetColor(AlienFX_SDK::Index::AlienFX_rightZone, 25, 114,
 //This is important to apply the updated color changes. Should only be called once after you're done with new colors.
 AlienFX_SDK::Functions::UpdateColors();
 ```
+### Probe app
+In release, you can find simple probe app (works at Alienware mXX only for now, tested on Alienware m15) - it shows DeviceID, then tries to switch lights to green position-by-position. Don't forget to share it's results for you gear!
 
 ### Projects using this SDK
 
