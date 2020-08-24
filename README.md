@@ -34,11 +34,12 @@ AlienFX_SDK::Functions::SetColor(AlienFX_SDK::Index::AlienFX_rightZone, 25, 114,
 AlienFX_SDK::Functions::UpdateColors();
 ```
 ### Probe app
-In release, you can find simple probe app (works at Alienware mXX only for now, tested on Alienware m15) - it shows DeviceID, then tries to switch lights to green position-by-position. Don't forget to share it's results for you gear!
+In [Releases](https://github.com/T-Troll/AlienFX-SDK/releases), you can find simple probe app - it shows DeviceID, DeviceVersion, then tries to switch lights to green position-by-position. Don't forget to share it's results for you gear!
 
 ### Projects using this SDK
 
 [Project Aurora](https://github.com/antonpup/Aurora).
+[Project AlienFx-tools](https://github.com/T-Troll/alienfx-tools).
 
 ##### Special Thanks
 Thanks go to Ingrater (http://3d.benjamin-thaut.de/) for his work on AlienFX and providing the protocol for me to work on.
