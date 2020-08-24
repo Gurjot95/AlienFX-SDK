@@ -13,19 +13,19 @@ namespace AlienFX_SDK
 
 	enum Index
 	{
-		AlienFX_leftZone = 2, //1,
-		AlienFX_leftMiddleZone = 3, //2,
-		AlienFX_rightZone = 5, // was 3,
-		AlienFX_rightMiddleZone = 4, // was 4,
+		AlienFX_leftZone = 1, // 2 for m15
+		AlienFX_leftMiddleZone = 2, // 3 for m15
+		AlienFX_rightZone = 3, // 5 for m15
+		AlienFX_rightMiddleZone = 4, // same for m15
 		AlienFX_Macro = 5,
-		AlienFX_AlienFrontLogo = 1, //6,
+		AlienFX_AlienFrontLogo = 6, // ?? for m15
 		AlienFX_LeftPanelTop = 7,
 		AlienFX_LeftPanelBottom = 8,
 		AlienFX_RightPanelTop = 9,
 		AlienFX_RightPanelBottom = 10,
 		AlienFX_TouchPad = 11,
-		AlienFX_AlienBackLogo = 0,//12,
-		AlienFX_Power = 1, //13,
+		AlienFX_AlienBackLogo = 12, // 0 for m15
+		AlienFX_Power = 13, // 1 for m15
 	};
 
 
