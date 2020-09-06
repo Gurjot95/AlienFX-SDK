@@ -61,6 +61,4 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
-*.cpp 	 text
-[core]
-	autocrlf = true
+*.cpp -text crlf diff
