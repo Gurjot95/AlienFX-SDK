@@ -26,6 +26,7 @@ namespace AlienFX_SDK
 	bool isInitialized = false;
 	HANDLE devHandle;
 	int length = 9;
+	bool inSet = false;
 
 	// Name mappings for lights
 	static std::vector <mapping> mappings;
@@ -283,8 +284,10 @@ namespace AlienFX_SDK
 			, 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00, 0x00, 0x00 };
 		byte BufferO[] = { 0x02 ,0x07 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00, 0x00, 0x00, 0x00 };
 
-		if (length == 34)
+		if (length == 34) {
 			Buffer = BufferN;
+			inSet = true;
+		}
 		else {
 			Buffer = BufferO;
 			if (status)
@@ -312,8 +315,9 @@ namespace AlienFX_SDK
 		if (length == 34) {
 			res = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, BufferN, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
 			Loop();
-			Functions::Reset(false);
-			Loop();
+			inSet = false;
+			//Functions::Reset(false);
+			//Loop();
 		}
 		else
 			res = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, BufferO, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
@@ -376,6 +380,7 @@ namespace AlienFX_SDK
 			Buffer[8] = r;
 			Buffer[9] = g;
 			Buffer[10] = b;
+			if (!inSet) Reset(false);
 			DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer2, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
 			Loop();
 		}
@@ -431,6 +436,7 @@ namespace AlienFX_SDK
 			Buffer[8] = r;
 			Buffer[9] = g;
 			Buffer[10] = b;
+			if (!inSet) Reset(false);
 			DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer2, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
 			Loop();
 		}
@@ -484,12 +490,16 @@ namespace AlienFX_SDK
 				Buffer[11] = Buffer[12] = Buffer[13] = Buffer[14] = Buffer[15] = 0;
 				break;
 			}
-
+			if (!inSet) Reset(false);
 			DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer2, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
 			Loop();
 			int res = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
 			Loop();
 			return res;
+		}
+		else {
+			// can't set action for old, just use color
+			SetColor(index, Red, Green, Blue);
 		}
 		return false;
 	}
@@ -615,8 +625,8 @@ namespace AlienFX_SDK
 	bool Functions::AlienFXChangeDevice(int npid)
 	{
 		int res;
-		if (pid != (-1))
-			AlienFXClose();
+		if (pid != (-1) && devHandle != NULL)
+				CloseHandle(devHandle);
 		res = AlienFXInitialize(vid, npid);
 		if (res != (-1)) {
 			pid = res;
@@ -685,6 +695,16 @@ namespace AlienFX_SDK
 		HKEY   hKey1;
 		size_t numdevs = devices.size();
 		size_t numlights = mappings.size();
+		RegCreateKeyEx(HKEY_CURRENT_USER,
+			TEXT("SOFTWARE"),
+			0,
+			NULL,
+			REG_OPTION_NON_VOLATILE,
+			KEY_ALL_ACCESS,//KEY_WRITE,
+			NULL,
+			&hKey1,
+			&dwDisposition);
+		RegDeleteTreeA(hKey1, "Alienfx_SDK");
 		RegCreateKeyEx(HKEY_CURRENT_USER,
 			TEXT("SOFTWARE\\Alienfx_SDK"),
 			0,
