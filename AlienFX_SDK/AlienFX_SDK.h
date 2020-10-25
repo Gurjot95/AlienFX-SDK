@@ -15,6 +15,7 @@ namespace AlienFX_SDK
 	struct mapping {
 		unsigned devid = 0;
 		unsigned lightid = 0;
+		unsigned flags = 0;
 		std::string name;
 	};
 
@@ -42,9 +43,11 @@ namespace AlienFX_SDK
 	
 	enum Action
 	{
-		AlienFX_Color = 0,
-		AlienFX_Pulse = 1,
-		AlienFX_Morph = 2
+		AlienFX_A_Color = 0,
+		AlienFX_A_Pulse = 1,
+		AlienFX_A_Morph = 2,
+		AlienFX_A_Power = 3,
+		AlienFX_A_NoAction = 4
 	};
 
 	class Functions
@@ -67,7 +70,7 @@ namespace AlienFX_SDK
 		// Switch to other AlienFX device
 		static  bool AlienFXChangeDevice(int pid);
 
-		//Enable/Disable all lights
+		//Enable/Disable all lights (or just prepare to set)
 		static  bool Reset(int status);
 
 		static  bool IsDeviceReady();
@@ -84,8 +87,16 @@ namespace AlienFX_SDK
 		// time - how much time to keep action (0-255)
 		// tempo - how fast to do evolution (f.e. pulse - 0-255) 
 		// It can possible to mix 2 actions in one (useful for morph), in this case use action2...Blue2
-		static  bool SetAction(int index, int action, int time, int tempo, int Red, int Green, int Blue, int action2 = 4, int time2 = 0, int tempo2=0, int Red2 = 0, int Green2 = 0, int Blue2 = 0);
+		static  bool SetAction(int index, int action, int time, int tempo, int Red, int Green, int Blue, int action2 = AlienFX_A_NoAction, int time2 = 0, int tempo2=0, int Red2 = 0, int Green2 = 0, int Blue2 = 0);
 
+		// Set action for Power button
+		// For now, settings as a default of AWCC, but it possible to do it more complex
+		static  bool SetPowerAction(int index, int Red, int Green, int Blue, int Red2, int Green2, int Blue2);
+
+		// return current device state
+		static  BYTE AlienfxGetDeviceStatus();
+
+		// Apply changes and update colors
 		static  bool UpdateColors();
 
 		// load light names from registry
@@ -99,6 +110,12 @@ namespace AlienFX_SDK
 
 		// get saved light names
 		static std::vector <mapping>* GetMappings();
+
+		// get saved light names
+		static int GetFlags(int devid, int lightid);
+
+		// get saved light names
+		static void SetFlags(int devid, int lightid, int flags);
 
 		// get PID in use
 		static int GetPID();

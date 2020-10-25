@@ -15,11 +15,12 @@ extern "C" {
 #define ALIENFX_DEVICE_RESET 0x06
 #define ALIENFX_READY 0x10
 #define ALIENFX_BUSY 0x11
-#define ALIENFX_UNKOWN_COMMAND 0x12
-// new statuses for m15 - 33 = ok, 36 = wait for reset, 35 = wait for command/update
+#define ALIENFX_UNKNOWN_COMMAND 0x12
+// new statuses for m15 - 33 = ok, 36 = wait for update, 35 = wait for color, 34 - busy processing power update
 #define ALIENFX_NEW_READY 33
-#define ALIENFX_NEW_WAITUPDATE 35
-#define ALIENFX_NEW_WAITRESET 36
+#define ALIENFX_NEW_BUSY 34
+#define ALIENFX_NEW_WAITCOLOR 35
+#define ALIENFX_NEW_WAITUPDATE 36
 
 namespace AlienFX_SDK
 {
@@ -27,6 +28,7 @@ namespace AlienFX_SDK
 	HANDLE devHandle;
 	int length = 9;
 	bool inSet = false;
+	ULONGLONG lastPowerCall = 0;
 
 	// Name mappings for lights
 	static std::vector <mapping> mappings;
@@ -252,12 +254,6 @@ namespace AlienFX_SDK
 		return flag;
 	}
 
-	int GetByteLength()
-	{
-		return length;
-
-	}
-
 	void Loop()
 	{
 		size_t BytesWritten;
@@ -274,6 +270,9 @@ namespace AlienFX_SDK
 		}
 	}
 
+	byte AlienfxWaitForReady();
+	byte AlienfxWaitForBusy();
+
 	bool Functions::Reset(int status)
 	{
 		size_t BytesWritten;
@@ -285,21 +284,18 @@ namespace AlienFX_SDK
 		byte BufferO[] = { 0x02 ,0x07 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00, 0x00, 0x00, 0x00 };
 
 		if (length == 34) {
-			Buffer = BufferN;
-			inSet = true;
+			result = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, BufferN, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+			Loop();
 		}
 		else {
-			Buffer = BufferO;
 			if (status)
-				Buffer[2] = 0x04;
+				BufferO[2] = 0x04;
 			else
-				Buffer[2] = 0x03;
+				BufferO[2] = 0x03;
+			result = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, BufferO, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+			AlienfxWaitForBusy();
 		}
-		result = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
-		if (length == 34)
-			Loop();
-		//if (!result)
-		//	res = GetLastError();
+		inSet = true;
 		//std::cout << "Reset!" << std::endl;
 		return result;
 	}
@@ -313,29 +309,31 @@ namespace AlienFX_SDK
 			, 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00, 0x00, 0x00 };
 		byte BufferO[] = { 0x02 ,0x05 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00,0x00 ,0x00 ,0x00 };
 		if (length == 34) {
-			res = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, BufferN, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
-			Loop();
-			inSet = false;
-			//Functions::Reset(false);
-			//Loop();
+			if (inSet) {
+				res = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, BufferN, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+				Loop();
+			}
 		}
-		else
+		else {
 			res = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, BufferO, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+			AlienfxWaitForReady();
+		}
 		//std::cout << "Update!" << std::endl;
+		inSet = false;
 		return res;
 	}
 
 	int Power = 13;
-	int Macro = 0;
-	int leftZone = 0x8;
-	int leftMiddleZone = 0x4;
-	int rightZone = 0x1;
-	int rightMiddleZone = 0x2;
-	int AlienFrontLogo = 0x40;
+	int Macro = 0x1;// 0;
+	int leftZone = 0x100;// 0x8;
+	int leftMiddleZone = 0x8;// 0x4;
+	int rightZone = 0x2;// 0x1;
+	int rightMiddleZone = 0x4;// 0x2;
+	int AlienFrontLogo = 0x20;// 0x40;
 	int AlienBackLogo = 0x20;
-	int LeftPanelTop = 0x1000;
-	int LeftPanelBottom = 0x400;
-	int RightPanelTop = 0x2000;
+	int LeftPanelTop = 0x40;// 0x1000;
+	int LeftPanelBottom = 0x280;// 0x400;
+	int RightPanelTop = 0xf7810;// 0x2000;
 	int RightPanelBottom = 0x800;
 	int TouchPad = 0x80;
 
@@ -359,13 +357,12 @@ namespace AlienFX_SDK
 		case 12: location = AlienBackLogo; break;
 		case 11: location = Power; break;
 		case 13: location = TouchPad; break;
-		default: location = AlienFrontLogo; break;
+		default: return 0; // location = AlienFrontLogo; break;
 		}
 		size_t BytesWritten;
 		byte* Buffer;
-		// As well, 34 byte report for m15 - first byte ID, then command
+		bool val = false;
 		// Buffer[8,9,10] = rgb
-		// Buffer[16,17,18] = rgb2 (if 2 colors involved)
 		byte BufferN[] = { 0x00, 0x03 ,0x24 ,0x00 ,0x07 ,0xd0 ,0x00 ,0xfa ,0x00 ,0x00, 0x00, 0x00, 0x00, 0x00 , 0x00 , 0x00 , 0x00
 				, 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00, 0x00, 0x00 };
 		byte BufferO[] = { 0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00, 0x00 ,0x00 ,0x00 };
@@ -374,15 +371,19 @@ namespace AlienFX_SDK
 		/// Buffer2[6-33] - LightID (index, not mask) - it can be COUNT of them.
 		byte Buffer2[] = { 0x00, 0x03 ,0x23 ,0x01 ,0x00 ,0x01 ,0x00 ,0x00 ,0x00 ,0x00, 0x00, 0x00, 0x00, 0x00 , 0x00 , 0x00 , 0x00
 				, 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00, 0x00, 0x00 };
+		//byte BufferO2[] = { 0x02 ,0x08 ,0x01 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00, 0x00 ,0x00 ,0x00 };
+		if (!inSet)
+			Reset(1);
+
 		if (length == 34) {
 			Buffer = BufferN;
 			Buffer2[6] = index;
 			Buffer[8] = r;
 			Buffer[9] = g;
 			Buffer[10] = b;
-			if (!inSet) Reset(false);
 			DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer2, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
 			Loop();
+			val = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
 		}
 		else {
 			Buffer = BufferO;
@@ -392,20 +393,20 @@ namespace AlienFX_SDK
 			Buffer[3] = (location & 0xFF0000) >> 16;
 			Buffer[4] = (location & 0x00FF00) >> 8;
 			Buffer[5] = (location & 0x0000FF);
-			Buffer[6] = r;
-			Buffer[7] = g;
-			Buffer[8] = b;
+			Buffer[6] = (r & 0xf0) | ((g & 0xf0) >> 4); //r;
+			Buffer[7] = b;
+			//Buffer[8] = b;
 
-			if (index == 5)
+			/*if (index == 5)
 			{
 				Buffer[1] = 0x83;
 				Buffer[2] = (byte)index;
 				Buffer[3] = 00;
 				Buffer[4] = 00;
 				Buffer[5] = 00;
-			}
+			}*/
 
-			if (index == 11)
+			if (index == 0)
 			{
 				Buffer[1] = 0x01;
 				Buffer[2] = (byte)index;
@@ -413,8 +414,13 @@ namespace AlienFX_SDK
 				Buffer[4] = 01;
 				Buffer[5] = 00;
 			}
+			//DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, BufferO2, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+			val = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+			//DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, BufferO2, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+			//int status = AlienfxWaitForReady();
+			//std::cout << "Color status:" << status << std::endl;
 		}
-		bool val = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+		
 		Loop();
 		return val;
 	}
@@ -456,7 +462,7 @@ namespace AlienFX_SDK
 		size_t BytesWritten;
 		// Buffer[3], [11] - action type ( 0 - light, 1 - pulse, 2 - morph)
 		// Buffer[4], [12] - how long phase keeps
-		// Buffer[5], [13] - mode (action type) - 0xd0 - light, 0xdc - pulse, 0xcf - morph
+		// Buffer[5], [13] - mode (action type) - 0xd0 - light, 0xdc - pulse, 0xcf - morph, 0xe8 - power morph
 		// Buffer[7], [15] - tempo (0xfa - steady)
 		byte Buffer[] = { 0x00, 0x03 ,0x24 ,0x00 ,0x07 ,0xd0 ,0x00 ,0x32 ,0x00 ,0x00, 0x00, 0x00, 0x00, 0x00 , 0x00 , 0x64 , 0x00
 		, 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00, 0x00, 0x00 };
@@ -469,23 +475,25 @@ namespace AlienFX_SDK
 			Buffer[11] = action2;
 			Buffer[12] = time2;
 			Buffer[15] = tempo2;
-			Buffer2[6] = index;
 			Buffer[8] = Red;
 			Buffer[9] = Green;
 			Buffer[10] = Blue;
 			Buffer[16] = Red2;
 			Buffer[17] = Green2;
 			Buffer[18] = Blue2;
+			Buffer2[6] = index;
 
 			switch (action) {
 			case 0: Buffer[5] = 0xd0; Buffer[7] = 0xfa; break;
 			case 1: Buffer[5] = 0xdc; break;
 			case 2: Buffer[5] = 0xcf; break;
+			case 3: Buffer[5] = 0xe8; Buffer[3] = AlienFX_A_Morph; break;
 			}
 			switch (action2) {
-			case 0: Buffer[13] = 0xd0; Buffer[15] = 0xfa; break;
+			case 0: Buffer[13] = 0xd0; Buffer[11] = 0; Buffer[15] = 0xfa; break;
 			case 1: Buffer[13] = 0xdc; break;
 			case 2: Buffer[13] = 0xcf; break;
+			case 3: Buffer[13] = 0xe8; Buffer[11] = AlienFX_A_Morph; break;
 			case 4: // No action
 				Buffer[11] = Buffer[12] = Buffer[13] = Buffer[14] = Buffer[15] = 0;
 				break;
@@ -498,15 +506,100 @@ namespace AlienFX_SDK
 			return res;
 		}
 		else {
-			// can't set action for old, just use color
+			// can't set action for old, just use color. 
 			SetColor(index, Red, Green, Blue);
+			// But here trick for Pulse!
+			switch (action) {
+			case 1: SetColor(index, Red2, Green2, Blue2); break;
+			}
 		}
 		return false;
 	}
 
+	bool Functions::SetPowerAction(int index, int Red, int Green, int Blue, int Red2, int Green2, int Blue2)
+	{
+		size_t BytesWritten;
+		byte Buffer[] = { 0x00, 0x03 ,0x22 ,0x00 ,0x04 ,0x00 ,0x5b ,0x00 ,0x00 ,0x00, 0x00, 0x00, 0x00, 0x00 , 0x00 , 0x00 , 0x00
+		, 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00, 0x00, 0x00 };
+		if (length == 34) { // only supported at new devices
+			// this function can be called not early then 250ms after last call!
+			ULONGLONG cPowerCall = GetTickCount64();
+			if (cPowerCall - lastPowerCall < 260)
+				//Sleep(lastPowerCall + 260 - cPowerCall);
+				return false;
+			// Need to flush query...
+			if (inSet) UpdateColors();
+			if (AlienfxGetDeviceStatus() != ALIENFX_NEW_READY) {
+				return false;
+			}
+			// this function can be called not early then 250ms after last call!
+			inSet = true;
+			// Now set....
+			for (BYTE cid = 0x5b; cid < 0x61; cid++) {
+				// Init query...
+				Buffer[6] = cid;
+				Buffer[4] = 4;
+				DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+				Loop();
+				Buffer[4] = 1;
+				DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+				Loop();
+				// Now set color by type...
+				switch (cid) {
+				case 0x5b: // Alarm
+					SetAction(index, AlienFX_A_Power, 3, 0x64, Red, Green, Blue, AlienFX_A_Power, 3, 0x64, 0, 0, 0);
+					break;
+				case 0x5c: // AC power
+					SetAction(index, AlienFX_A_Color, 0, 0, Red, Green, Blue);
+					break;
+				case 0x5d: // Charge
+					SetAction(index, AlienFX_A_Power, 3, 0x64, Red, Green, Blue, AlienFX_A_Power, 3, 0x64, Red2, Green2, Blue2);
+					break;
+				case 0x5e: // Low batt
+					SetAction(index, AlienFX_A_Power, 3, 0x64, Red2, Green2, Blue2, AlienFX_A_Power, 3, 0x64, 0, 0, 0);
+					break;
+				case 0x5f: // Batt power
+					SetAction(index, AlienFX_A_Color, 0, 0, Red2, Green2, Blue2);
+					break;
+				case 0x60: // Unknown - No battery?
+					SetAction(index, AlienFX_A_Color, 0, 0, Red2, Green2, Blue2);
+					break;
+				}
+				// And finish
+				Buffer[4] = 2;
+				DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+				Loop();
+				//AlienfxGetDeviceStatus();
+			}
+			// Now color set, if needed...
+			/*Buffer[2] = 0x21; Buffer[4] = 4; Buffer[6] = 0x61;
+			DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+			Loop();
+			Buffer[4] = 1;
+			DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+			Loop();
+			// TODO: color set here...
+			Buffer[4] = 2;
+			DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+			Loop();*/
+			Buffer[4] = 6; //Buffer[6] = 0x60;
+			DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+			Loop();
+			lastPowerCall = GetTickCount64();
+			//Sleep(250);
+			Reset(false);
+			//UpdateColors();
+			//inSet = false;
+		}
+		else {
+			// can't set action for old, just use color
+			SetColor(index, Red, Green, Blue);
+		}
+		return 0;
+	}
 	int ReadStatus;
 
-	byte AlienfxGetDeviceStatus()
+	BYTE Functions::AlienfxGetDeviceStatus()
 	{
 		size_t BytesWritten;
 		byte ret = 0;
@@ -529,18 +622,25 @@ namespace AlienFX_SDK
 				ret = 0x06;
 			else ret = Buffer[0];
 		}
+#ifdef _DEBUG
+		wchar_t buff[2048];
+		if (ret == 0) {
+			swprintf_s(buff, 2047, L"Status: %d\n", ret);
+			OutputDebugString(buff);
+		}
+#endif
 		return ret;
 	}
 
 	byte AlienfxWaitForReady()
 	{
-		byte status = AlienfxGetDeviceStatus();
-		for (int i = 0; i < 5 && (status != ALIENFX_READY && status != ALIENFX_NEW_READY); i++)
+		byte status = AlienFX_SDK::Functions::AlienfxGetDeviceStatus();
+		for (int i = 0; i < 10 && (status != ALIENFX_READY && status != ALIENFX_NEW_READY); i++)
 		{
 			if (status == ALIENFX_DEVICE_RESET)
 				return status;
-			Sleep(2);
-			status = AlienfxGetDeviceStatus();
+			Sleep(5);
+			status = AlienFX_SDK::Functions::AlienfxGetDeviceStatus();
 		}
 		return status;
 	}
@@ -548,13 +648,13 @@ namespace AlienFX_SDK
 	byte AlienfxWaitForBusy()
 	{
 
-		byte status = AlienfxGetDeviceStatus();
-		for (int i = 0; i < 5 && status != ALIENFX_BUSY && status != ALIENFX_NEW_WAITRESET; i++)
+		byte status = AlienFX_SDK::Functions::AlienfxGetDeviceStatus();
+		for (int i = 0; i < 10 && status != ALIENFX_BUSY && status != ALIENFX_NEW_BUSY; i++)
 		{
 			if (status == ALIENFX_DEVICE_RESET)
 				return status;
-			Sleep(2);
-			status = AlienfxGetDeviceStatus();
+			Sleep(5);
+			status = AlienFX_SDK::Functions::AlienfxGetDeviceStatus();
 		}
 		return status;
 	}
@@ -562,50 +662,54 @@ namespace AlienFX_SDK
 	bool Functions::IsDeviceReady()
 	{
 		int status;
+		if (length == 34) {
+			status = AlienFX_SDK::Functions::AlienfxGetDeviceStatus();
+			return status == ALIENFX_NEW_READY;
+		} else {
+			status = AlienfxWaitForBusy();
 
-		status = AlienfxWaitForBusy();
-
-		if (status == ALIENFX_DEVICE_RESET)
-		{
-			Sleep(1000);
-
-			return false;
-			//AlienfxReinit();
-
-		}
-		else if (status != ALIENFX_BUSY && status != ALIENFX_NEW_WAITRESET)
-		{
-			Sleep(50);
-		}
-		Reset(0x04);
-
-		status = AlienfxWaitForReady();
-		if (status == 0x06)
-		{
-			Sleep(1000);
-			//AlienfxReinit();
-
-			return false;
-		}
-		else if (status != ALIENFX_READY && status != ALIENFX_NEW_READY)
-		{
-			if (status == ALIENFX_BUSY || status == ALIENFX_NEW_WAITUPDATE)
+			if (status == ALIENFX_DEVICE_RESET)
 			{
-				Reset(0x04);
-
-				status = AlienfxWaitForReady();
-				if (status == ALIENFX_DEVICE_RESET)
-				{
-					Sleep(1000);
-					//AlienfxReinit();
-					return false;
-				}
-			}
-			else
-			{
-				Sleep(50);
+				Sleep(1000);
 
 				return false;
+				//AlienfxReinit();
+
+			}
+			else if (status != ALIENFX_BUSY && status != ALIENFX_NEW_WAITUPDATE)
+			{
+				Sleep(50);
+			}
+			Reset(0x04);
+
+			status = AlienfxWaitForReady();
+			if (status == ALIENFX_DEVICE_RESET)
+			{
+				Sleep(1000);
+				//AlienfxReinit();
+
+				return false;
+			}
+			else if (status != ALIENFX_READY)
+			{
+				if (status == ALIENFX_BUSY)
+				{
+					Reset(0x04);
+
+					status = AlienfxWaitForReady();
+					if (status == ALIENFX_DEVICE_RESET)
+					{
+						Sleep(1000);
+						//AlienfxReinit();
+						return false;
+					}
+				}
+				else
+				{
+					Sleep(50);
+
+					return false;
+				}
 			}
 		}
 		return true;
@@ -636,9 +740,35 @@ namespace AlienFX_SDK
 		return false;
 	}
 
+	void AddMapping(int devID, int lightID, char* name, int flags) {
+		mapping map;
+		int i = 0;
+		for (i = 0; i < mappings.size(); i++) {
+			if (mappings[i].devid == devID && mappings[i].lightid == lightID) {
+				if (name != NULL)
+					mappings[i].name = name;
+				else
+					mappings[i].flags = flags;
+				break;
+			}
+		}
+		if (i == mappings.size()) {
+			// add new mapping
+			map.devid = devID; map.lightid = lightID;
+			if (name != NULL)
+				map.name = name;
+			else
+				map.flags = flags;
+			mappings.push_back(map);
+		}
+	}
+
 	void Functions::LoadMappings() {
 		DWORD  dwDisposition;
 		HKEY   hKey1;
+
+		devices.clear();
+		mappings.clear();
 
 		RegCreateKeyEx(HKEY_CURRENT_USER,
 			TEXT("SOFTWARE\\Alienfx_SDK"),
@@ -668,20 +798,26 @@ namespace AlienFX_SDK
 			);
 			// get id(s)...
 			if (ret == ERROR_SUCCESS) {
-				unsigned ret2 = sscanf_s((char*)name, "%d-%d", &map.devid, &map.lightid);
+				int lID = 0, dID = 0;
+				unsigned ret2 = sscanf_s((char*)name, "%d-%d", &dID, &lID);
 				if (ret2 == 2) {
 					// light name
-					std::string out(inarray);
-					map.name = out;
-					mappings.push_back(map);
+					AddMapping(dID, lID, inarray, 0);
 				}
 				else {
-					// device name?
-					ret2 = sscanf_s((char*)name, "Dev#%d", &dev.devid);
-					if (ret2 == 1) {
-						std::string devname(inarray);
-						dev.name = devname;
-						devices.push_back(dev);
+					// device flags?
+					ret2 = sscanf_s((char*)name, "Flags%d-%d", &dID, &lID);
+					if (ret2 == 2) {
+						AddMapping(dID, lID, NULL, *(unsigned *)inarray);
+					}
+					else {
+						// device name?
+						ret2 = sscanf_s((char*)name, "Dev#%d", &dev.devid);
+						if (ret2 == 1) {
+							std::string devname(inarray);
+							dev.name = devname;
+							devices.push_back(dev);
+						}
 					}
 				}
 				vindex++;
@@ -741,6 +877,16 @@ namespace AlienFX_SDK
 				(BYTE*)mappings[i].name.c_str(),
 				(DWORD)mappings[i].name.size()
 			);
+			sprintf_s((char*)name, 255, "Flags%d-%d", mappings[i].devid, mappings[i].lightid);
+
+			RegSetValueExA(
+				hKey1,
+				name,
+				0,
+				REG_DWORD,
+				(BYTE*)&mappings[i].flags,
+				4
+			);
 		}
 		RegCloseKey(hKey1);
 	}
@@ -748,6 +894,23 @@ namespace AlienFX_SDK
 	std::vector<mapping>* Functions::GetMappings()
 	{
 		return &mappings;
+	}
+
+	int Functions::GetFlags(int devid, int lightid)
+	{
+		for (int i = 0; i < mappings.size(); i++)
+			if (mappings[i].devid == devid && mappings[i].lightid == lightid)
+				return mappings[i].flags;
+		return -1;
+	}
+
+	void Functions::SetFlags(int devid, int lightid, int flags)
+	{
+		for (int i = 0; i < mappings.size(); i++)
+			if (mappings[i].devid == devid && mappings[i].lightid == lightid) {
+				mappings[i].flags = flags;
+				return;
+			}
 	}
 
 	std::vector<devmap>* Functions::GetDevices()
@@ -762,7 +925,12 @@ namespace AlienFX_SDK
 
 	int Functions::GetVersion()
 	{
-		return version;
+		switch (length) {
+		case 34: return 3;
+		case 12: return 2;
+		case 7: return 1;
+		}
+		return length;
 	}
 
 	int GetError()
