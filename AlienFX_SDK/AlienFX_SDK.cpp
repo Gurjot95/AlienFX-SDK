@@ -166,7 +166,7 @@ namespace AlienFX_SDK
 
 						if (attributes->VendorID == vid)
 						{
-							// I use it to detect is it old device or new, i have version = 0 for old, and version = 512 for new
+							// I use Version to detect is it old device or new, i have version = 0 for old, and version = 512 for new
 							if (attributes->VersionNumber > 511)
 								length = 34;
 							else
@@ -186,18 +186,18 @@ namespace AlienFX_SDK
 	}
 
 	//Use this method for general devices
-	bool Functions::AlienFXInitialize(int vid, int pidd)
+	int Functions::AlienFXInitialize(int vid, int pidd)
 	{
 		GUID guid;
 		bool flag = false;
-		pid = pidd;
+		pid = -1;
 
 		HidD_GetHidGuid(&guid);
 		HDEVINFO hDevInfo = SetupDiGetClassDevsA(&guid, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
 		if (hDevInfo == INVALID_HANDLE_VALUE)
 		{
 			//std::cout << "Couldn't get guid";
-			return false;
+			return pid;
 		}
 		unsigned int dw = 0;
 		SP_DEVICE_INTERFACE_DATA deviceInterfaceData;
@@ -209,20 +209,20 @@ namespace AlienFX_SDK
 			if (!SetupDiEnumDeviceInterfaces(hDevInfo, NULL, &guid, dw, &deviceInterfaceData))
 			{
 				lastError = GetLastError();
-				return false;
+				return pid;
 			}
 			dw++;
 			DWORD dwRequiredSize = 0;
 			if (SetupDiGetDeviceInterfaceDetailW(hDevInfo, &deviceInterfaceData, NULL, 0, &dwRequiredSize, NULL))
 			{
 				//std::cout << "Getting the needed buffer size failed";
-				return false;
+				return pid;
 			}
 			//std::cout << "Required size is " << dwRequiredSize << std::endl;
 			if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
 			{
 				//std::cout << "Last error is not ERROR_INSUFFICIENT_BUFFER";
-				return false;
+				return pid;
 			}
 			std::unique_ptr<SP_DEVICE_INTERFACE_DETAIL_DATA> deviceInterfaceDetailData((SP_DEVICE_INTERFACE_DETAIL_DATA*)new char[dwRequiredSize]);
 			deviceInterfaceDetailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
@@ -239,15 +239,15 @@ namespace AlienFX_SDK
 					if (HidD_GetAttributes(devHandle, attributes.get()))
 					{
 
-						if (((attributes->VendorID == vid) && (attributes->ProductID == pid)))
+						if (((attributes->VendorID == vid) && (attributes->ProductID == pidd)))
 						{
-							// BUGFIX - length was not filled in this procedure
-							// I use it to detect is it old device or new, i have version = 0 for old, and version = 512 for new
+							// Check API version...
 							if (attributes->VersionNumber > 511)
 								length = 34;
 							else
 								length = attributes->Size;
 							version = attributes->VersionNumber;
+							pid = pidd;
 							flag = true;
 						}
 					}
@@ -256,7 +256,7 @@ namespace AlienFX_SDK
 			}
 		}
 		//OutputDebugString(flag);
-		return flag;
+		return pid;
 	}
 
 	void Loop()
@@ -284,7 +284,6 @@ namespace AlienFX_SDK
 	{
 		size_t BytesWritten;
 		bool result = false;
-		byte* Buffer = NULL;
 		// m15/m17 use 34 bytes (ID (always 0) + 33 bytes payload) report.
 		byte BufferN[] = { 0x00, 0x03 ,0x21 ,0x00 ,0x01 ,0xff ,0xff ,0x00 ,0x00 ,0x00, 0x00, 0x00, 0x00, 0x00 , 0x00 , 0x00 , 0x00
 			, 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00, 0x00, 0x00 };
@@ -476,7 +475,7 @@ namespace AlienFX_SDK
 		size_t BytesWritten;
 		// Buffer[3], [11] - action type ( 0 - light, 1 - pulse, 2 - morph)
 		// Buffer[4], [12] - how long phase keeps
-		// Buffer[5], [13] - mode (action type) - 0xd0 - light, 0xdc - pulse, 0xcf - morph, 0xe8 - power morph
+		// Buffer[5], [13] - mode (action type) - 0xd0 - light, 0xdc - pulse, 0xcf - morph, 0xe8 - power morph, 0x82 - spectrum, 0xac - rainbow
 		// Buffer[7], [15] - tempo (0xfa - steady)
 		// Buffer[8-10]    - rgb
 		// 00 03 24 02 0b b7 00 64
@@ -484,72 +483,50 @@ namespace AlienFX_SDK
 		// 00 03 24 02 02 82 00 0f x3rgb(!) x3(!) - last one only 1 color.
 		// 00 03 24 02 01 ac 00 0f x3rgb x3
 		byte Buffer[] = { 0x00, 0x03 ,0x24 ,0x00 ,0x07 ,0xd0 ,0x00 ,0x32 ,0x00 ,0x00, 0x00, 0x00, 0x00, 0x00 , 0x00 , 0x64 , 0x00
-		, 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00, 0x00, 0x00 };
+		, 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00, 0x00, 0x00, 0x00 };
 		byte Buffer2[] = { 0x00, 0x03 ,0x23 ,0x01 ,0x00 ,0x01 ,0x00 ,0x00 ,0x00 ,0x00, 0x00, 0x00, 0x00, 0x00 , 0x00 , 0x00 , 0x00
 				, 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00, 0x00, 0x00 };
 		switch (length) {
 		case API_V3: { // only supported at new devices
 			if (!inSet) Reset(false);
-			Buffer2[6] = index;
-			DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer2, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
-			Loop();
 			int bPos = 3, res = 0;
-			for (int ca = 0; ca < act.size(); ca++) {
-				// 3 actions per record..
-				Buffer[bPos] = act[ca].type;
-				Buffer[bPos + 1] = act[ca].time;
-				Buffer[bPos + 3] = 0;
-				Buffer[bPos + 4] = act[ca].tempo;
-				Buffer[bPos + 5] = act[ca].r;
-				Buffer[bPos + 6] = act[ca].g;
-				Buffer[bPos + 7] = act[ca].b;
-				switch (act[ca].type) {
-				case AlienFX_A_Color: Buffer[bPos + 2] = 0xd0; Buffer[bPos + 4] = 0xfa; break;
-				case AlienFX_A_Pulse: Buffer[bPos + 2] = 0xdc; break;
-				case AlienFX_A_Morph: Buffer[bPos + 2] = 0xcf; break;
-				case AlienFX_A_Power: Buffer[bPos + 2] = 0xe8; Buffer[bPos] = AlienFX_A_Morph; break;
-				default: Buffer[bPos + 2] = 0xd0; Buffer[bPos + 4] = 0xfa;
+			if (act.size() > 0) {
+				Buffer2[6] = index;
+				DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer2, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+				Loop();				
+				for (int ca = 0; ca < act.size(); ca++) {
+					// 3 actions per record..
+					Buffer[bPos] = act[ca].type < AlienFX_A_Breathing ? act[ca].type : AlienFX_A_Morph;
+					Buffer[bPos + 1] = act[ca].time;
+					Buffer[bPos + 3] = 0;
+					Buffer[bPos + 4] = act[ca].tempo;
+					Buffer[bPos + 5] = act[ca].r;
+					Buffer[bPos + 6] = act[ca].g;
+					Buffer[bPos + 7] = act[ca].b;
+					switch (act[ca].type) {
+					case AlienFX_A_Color: Buffer[bPos + 2] = 0xd0; Buffer[bPos + 4] = 0xfa; break;
+					case AlienFX_A_Pulse: Buffer[bPos + 2] = 0xdc; break;
+					case AlienFX_A_Morph: Buffer[bPos + 2] = 0xcf; break;
+					case AlienFX_A_Breathing: Buffer[bPos + 2] = 0xdc; break;
+					case AlienFX_A_Spectrum: Buffer[bPos + 2] = 0x82; break;
+					case AlienFX_A_Rainbow: Buffer[bPos + 2] = 0xac; break;
+					case AlienFX_A_Power: Buffer[bPos + 2] = 0xe8; break;
+					default: Buffer[bPos + 2] = 0xd0; Buffer[bPos + 4] = 0xfa; Buffer[bPos] = AlienFX_A_Color;
+					}
+					bPos += 8;
+					if (bPos == 27) {
+						res = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+						Loop();
+						// clean buffer....
+						ZeroMemory(Buffer + 3, 31);
+						bPos = 3;
+					}
 				}
-				bPos += 8;
-				if (bPos > 34) {
+				if (bPos != 3) {
 					res = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
 					Loop();
-					bPos = 3;
 				}
 			}
-			if (bPos != 3) {
-				res = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
-				Loop();
-			}
-			/*Buffer[3] = action;
-			Buffer[4] = time;
-			// 5 = action;
-			Buffer[7] = tempo;
-			Buffer[11] = action2;
-			Buffer[12] = time2;
-			Buffer[15] = tempo2;
-			Buffer[8] = Red;
-			Buffer[9] = Green;
-			Buffer[10] = Blue;
-			Buffer[16] = Red2;
-			Buffer[17] = Green2;
-			Buffer[18] = Blue2;
-
-			switch (action) {
-			case 0: Buffer[5] = 0xd0; Buffer[7] = 0xfa; break;
-			case 1: Buffer[5] = 0xdc; break;
-			case 2: Buffer[5] = 0xcf; break;
-			case 3: Buffer[5] = 0xe8; Buffer[3] = AlienFX_A_Morph; break;
-			}
-			switch (action2) {
-			case 0: Buffer[13] = 0xd0; Buffer[11] = 0; Buffer[15] = 0xfa; break;
-			case 1: Buffer[13] = 0xdc; break;
-			case 2: Buffer[13] = 0xcf; break;
-			case 3: Buffer[13] = 0xe8; Buffer[11] = AlienFX_A_Morph; break;
-			case 4: // No action
-				Buffer[11] = Buffer[12] = Buffer[13] = Buffer[14] = Buffer[15] = 0;
-				break;
-			}*/
 			return res;
 		} break;
 		case API_V2: {
@@ -796,7 +773,7 @@ namespace AlienFX_SDK
 				CloseHandle(devHandle);
 		res = AlienFXInitialize(vid, npid);
 		if (res != (-1)) {
-			pid = res;
+			pid = npid;
 			Reset(false);
 			return true;
 		}
