@@ -16,31 +16,22 @@ extern "C" {
 #define ALIENFX_READY 0x10
 #define ALIENFX_BUSY 0x11
 #define ALIENFX_UNKNOWN_COMMAND 0x12
-// new statuses for m15 - 33 = ok, 36 = wait for update, 35 = wait for color, 34 - busy processing power update
+// new statuses for apiv3 - 33 = ok, 36 = wait for update, 35 = wait for color, 34 - busy processing power update
 #define ALIENFX_NEW_READY 33
 #define ALIENFX_NEW_BUSY 34
 #define ALIENFX_NEW_WAITCOLOR 35
 #define ALIENFX_NEW_WAITUPDATE 36
 
 // Length by API version:
+#define API_V4 65
 #define API_V3 34
 #define API_V2 12
 #define API_V1 8
 
+#define POWER_DELAY 500
+
 namespace AlienFX_SDK
 {
-	bool isInitialized = false;
-	HANDLE devHandle;
-	int length = 9;
-	bool inSet = false;
-	ULONGLONG lastPowerCall = 0;
-
-	// Name mappings for lights
-	static std::vector <mapping> mappings;
-	static std::vector <devmap> devices;
-
-	static int pid = -1;
-	static int version = -1;
 
 	std::vector<int> Functions::AlienFXEnumDevices(int vid)
 	{
@@ -99,8 +90,16 @@ namespace AlienFX_SDK
 					if (HidD_GetAttributes(tdevHandle, attributes.get()))
 					{
 
-						if (attributes->VendorID == vid)
+						if (vid == 0 || attributes->VendorID == vid)
 						{
+#ifdef _DEBUG
+							wchar_t buff[2048];
+							swprintf_s(buff, 2047, L"VID: %#x, PID: %#x, Version: %d, Length: %d\n",
+								attributes->VendorID, attributes->ProductID, attributes->VersionNumber, attributes->Size);
+							OutputDebugString(buff);
+							//std::cout << std::hex << "VID:" << attributes->VendorID << ",PID:" << attributes->ProductID 
+							//	<< ",Ver:" << attributes->VersionNumber << ",Len:" << attributes->Size << std::endl;
+#endif
 							pids.push_back(attributes->ProductID);
 						}
 					}
@@ -167,18 +166,20 @@ namespace AlienFX_SDK
 
 						if (attributes->VendorID == vid)
 						{
-							// I use Version to detect is it old device or new, i have version = 0 for old, and version = 512 for new
-							if (attributes->VersionNumber > 511)
-								length = 34;
+							// Is it Darfon? Then set 64 bytes length.
+							if (vid == AlienFX_SDK::Functions::vid2)
+								length = API_V4;
 							else
-								length = attributes->Size;
+								// I use Version to detect is it old device or new, i have version = 0 for old, and version = 512 for new
+								if (attributes->VersionNumber > 511)
+									length = API_V3;
+								else
+									length = attributes->Size;
 							pid = attributes->ProductID;
 							version = attributes->VersionNumber;
 							flag = true;
 						}
 					}
-
-
 				}
 			}
 		}
@@ -243,10 +244,14 @@ namespace AlienFX_SDK
 						if (((attributes->VendorID == vid) && (attributes->ProductID == pidd)))
 						{
 							// Check API version...
-							if (attributes->VersionNumber > 511)
-								length = 34;
+							// Is it Darfon? Then set 64 bytes length.
+							if (vid == AlienFX_SDK::Functions::vid2)
+								length = API_V4;
 							else
-								length = attributes->Size;
+								if (attributes->VersionNumber > 511)
+									length = API_V3;
+								else
+									length = attributes->Size;
 							version = attributes->VersionNumber;
 							pid = pidd;
 							flag = true;
@@ -260,7 +265,7 @@ namespace AlienFX_SDK
 		return pid;
 	}
 
-	void Loop()
+	void Functions::Loop()
 	{
 		size_t BytesWritten;
 		byte BufferN[] = { 0x00, 0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00, 0x00, 0x00, 0x00, 0x00 , 0x00 , 0x00 , 0x00
@@ -278,9 +283,6 @@ namespace AlienFX_SDK
 		} break;
 		}
 	}
-
-	byte AlienfxWaitForReady();
-	byte AlienfxWaitForBusy();
 
 	bool Functions::Reset(int status)
 	{
@@ -315,14 +317,25 @@ namespace AlienFX_SDK
 	{
 		size_t BytesWritten;
 		bool res = false;
+		// API v4 command
+		byte Buffer4[] = { 0x00, 0xcc, 0x8c, 0x13, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 		// As well, 34 byte report for m15 - first byte ID, then command
 		byte BufferN[] = { 0x00, 0x03 ,0x21 ,0x00 ,0x03 ,0x00 ,0xff ,0x00 ,0x00 ,0x00, 0x00, 0x00, 0x00, 0x00 , 0x00 , 0x00 , 0x00
 			, 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00, 0x00, 0x00 };
 		byte BufferO[] = { 0x02 ,0x05 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00,0x00 ,0x00 ,0x00 };
 		switch (length) {
+		case API_V4: {
+			if (inSet) {
+				res = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer4, API_V4, NULL, 0, (DWORD*)&BytesWritten, NULL);
+				Loop();
+			}
+		}
 		case API_V3: {
 			if (inSet) {
-				res = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, BufferN, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+				res = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, BufferN, API_V3, NULL, 0, (DWORD*)&BytesWritten, NULL);
 				Loop();
 			}
 		} break;
@@ -358,6 +371,16 @@ namespace AlienFX_SDK
 	{
 		size_t BytesWritten;
 		bool val = false;
+		// API v4 command - 11,12,13 and 14,15,16 is RGB
+		byte Buffer41[] = { 0x00, 0xcc, 0x8c, 0x01, 0x01, 0x01, 0x00, 0x00, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+		// API v4 command - 4 is index
+		byte Buffer42[] = { 0x00, 0xcc, 0x8c, 0x02, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 		// Buffer[8,9,10] = rgb
 		byte BufferN[] = { 0x00, 0x03 ,0x24 ,0x00 ,0x07 ,0xd0 ,0x00 ,0xfa ,0x00 ,0x00, 0x00, 0x00, 0x00, 0x00 , 0x00 , 0x00 , 0x00
 				, 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00, 0x00, 0x00 };
@@ -371,6 +394,15 @@ namespace AlienFX_SDK
 		if (!inSet)
 			Reset(1);
 		switch (length) {
+		case API_V4: {
+			Buffer41[11] = Buffer41[14] = r;
+			Buffer41[12] = Buffer41[15] = g;
+			Buffer41[13] = Buffer41[16] = b;
+			Buffer42[4] = index;
+			DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer41, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+			Loop();
+			val = DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer42, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
+		} break;
 		case API_V3: {
 			Buffer2[6] = index;
 			BufferN[8] = r;
@@ -549,20 +581,39 @@ namespace AlienFX_SDK
 	bool Functions::SetPowerAction(int index, BYTE Red, BYTE Green, BYTE Blue, BYTE Red2, BYTE Green2, BYTE Blue2, bool force)
 	{
 		size_t BytesWritten;
+		bool oldInSet;
 		byte Buffer[] = { 0x00, 0x03 ,0x22 ,0x00 ,0x04 ,0x00 ,0x5b ,0x00 ,0x00 ,0x00, 0x00, 0x00, 0x00, 0x00 , 0x00 , 0x00 , 0x00
 		, 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00, 0x00, 0x00 };
 		switch (length) {
 		case API_V3: { // only supported at new devices
 			// this function can be called not early then 250ms after last call!
 			ULONGLONG cPowerCall = GetTickCount64();
-			if (cPowerCall - lastPowerCall < 260)
-				if (force)
-					Sleep(lastPowerCall + 260 - cPowerCall);
-				else
+#ifdef _DEBUG
+			if (force)
+				OutputDebugString(TEXT("Forced power button update!\n"));
+#endif
+			if (cPowerCall - lastPowerCall < POWER_DELAY)
+				if (force) {
+#ifdef _DEBUG
+					OutputDebugString(TEXT("Forced power button update waiting...\n"));
+#endif
+					Sleep(lastPowerCall + (ULONGLONG)POWER_DELAY - cPowerCall);
+				}
+				else {
+#ifdef _DEBUG
+					OutputDebugString(TEXT("Power update skipped!\n"));
+#endif
 					return false;
+				}
 			// Need to flush query...
 			if (inSet) UpdateColors();
 			if (AlienfxGetDeviceStatus() != ALIENFX_NEW_READY) {
+#ifdef _DEBUG
+				if (force)
+					OutputDebugString(TEXT("Forced power update - device still not ready\n"));
+				else
+					OutputDebugString(TEXT("Power update - device still not ready\n"));
+#endif
 				return false;
 			}
 			inSet = true;
@@ -662,16 +713,14 @@ namespace AlienFX_SDK
 		} break;
 		}
 #ifdef _DEBUG
-		wchar_t buff[2048];
 		if (ret == 0) {
-			swprintf_s(buff, 2047, L"Status: %d\n", ret);
-			OutputDebugString(buff);
+			OutputDebugString(TEXT("System hangs!\n"));
 		}
 #endif
 		return ret;
 	}
 
-	byte AlienfxWaitForReady()
+	BYTE Functions::AlienfxWaitForReady()
 	{
 		byte status = AlienFX_SDK::Functions::AlienfxGetDeviceStatus();
 		for (int i = 0; i < 10 && (status != ALIENFX_READY && status != ALIENFX_NEW_READY); i++)
@@ -684,7 +733,7 @@ namespace AlienFX_SDK
 		return status;
 	}
 
-	byte AlienfxWaitForBusy()
+	BYTE Functions::AlienfxWaitForBusy()
 	{
 
 		byte status = AlienFX_SDK::Functions::AlienfxGetDeviceStatus();
@@ -704,7 +753,7 @@ namespace AlienFX_SDK
 		switch (length) {
 		case API_V3: {
 			status = AlienFX_SDK::Functions::AlienfxGetDeviceStatus();
-			return status == ALIENFX_NEW_READY;
+			return status == ALIENFX_NEW_READY || status == ALIENFX_NEW_WAITUPDATE;
 		} break;
 		case API_V2: case API_V1: {
 			status = AlienfxWaitForBusy();
@@ -783,7 +832,7 @@ namespace AlienFX_SDK
 		return false;
 	}
 
-	void AddMapping(int devID, int lightID, char* name, int flags) {
+	void Functions::AddMapping(int devID, int lightID, char* name, int flags) {
 		mapping map;
 		int i = 0;
 		for (i = 0; i < mappings.size(); i++) {
@@ -971,18 +1020,15 @@ namespace AlienFX_SDK
 	int Functions::GetVersion()
 	{
 		switch (length) {
-		case 34: return 3;
-		case 12: return 2;
-		case 9: return 1;
-		default: return -1;
+		case API_V4: return 4; break;
+		case API_V3: return 3; break;
+		case API_V2: return 2; break;
+		case API_V1: return 1; break;
+			default: return -1;
 		}
 		return length;
 	}
 
-	int GetError()
-	{
-		return GetLastError();
-	}
 }
 
 
