@@ -28,7 +28,7 @@ extern "C" {
 #define API_V2 12
 #define API_V1 8
 
-#define POWER_DELAY 500
+#define POWER_DELAY 300
 
 namespace AlienFX_SDK
 {
@@ -261,7 +261,6 @@ namespace AlienFX_SDK
 				}
 			}
 		}
-		//OutputDebugString(flag);
 		return pid;
 	}
 
@@ -662,16 +661,20 @@ namespace AlienFX_SDK
 				Loop();
 			}
 			// Now (default) color set, if needed...
-			/*Buffer[2] = 0x21; Buffer[4] = 4; Buffer[6] = 0x61;
+			Buffer[2] = 0x21; Buffer[4] = 4; Buffer[6] = 0x61;
 			DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
 			Loop();
 			Buffer[4] = 1;
 			DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
 			Loop();
-			// TODO: color set here...
+			// Default color set here...
+			for (int i = 0; i < mappings.size(); i++) {
+				if (mappings[i].devid == pid && !mappings[i].flags)
+					SetColor(mappings[i].lightid, 0, 0, 0);
+			}
 			Buffer[4] = 2;
 			DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
-			Loop();*/
+			Loop();
 			Buffer[4] = 6;
 			DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
 			Loop();
@@ -683,7 +686,7 @@ namespace AlienFX_SDK
 			SetColor(index, Red, Green, Blue);
 		} break;
 		}
-		return 0;
+		return true;
 	}
 	int ReadStatus;
 
@@ -697,8 +700,8 @@ namespace AlienFX_SDK
 		byte Buffer[] = { 0x02 ,0x06 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00, 0x00, 0x00, 0x00 };
 		switch (length) {
 		case API_V3: {
-			DeviceIoControl(devHandle, IOCTL_HID_GET_INPUT_REPORT, 0, 0, BufferN, length, (DWORD*)&BytesWritten, NULL);
-			ret = BufferN[2];
+			if (DeviceIoControl(devHandle, IOCTL_HID_GET_INPUT_REPORT, 0, 0, BufferN, length, (DWORD*)&BytesWritten, NULL))
+				ret = BufferN[2];
 		} break;
 		case API_V2: case API_V1: {
 			DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, Buffer, length, NULL, 0, (DWORD*)&BytesWritten, NULL);
@@ -722,12 +725,11 @@ namespace AlienFX_SDK
 	BYTE Functions::AlienfxWaitForReady()
 	{
 		byte status = AlienFX_SDK::Functions::AlienfxGetDeviceStatus();
-		for (int i = 0; i < 10 && (status != ALIENFX_READY && status != ALIENFX_NEW_READY); i++)
+		for (int i = 0; i < 10 && (status = AlienFX_SDK::Functions::AlienfxGetDeviceStatus()) != ALIENFX_READY && status != ALIENFX_NEW_READY; i++)
 		{
 			if (status == ALIENFX_DEVICE_RESET)
 				return status;
 			Sleep(5);
-			status = AlienFX_SDK::Functions::AlienfxGetDeviceStatus();
 		}
 		return status;
 	}
@@ -736,12 +738,11 @@ namespace AlienFX_SDK
 	{
 
 		byte status = AlienFX_SDK::Functions::AlienfxGetDeviceStatus();
-		for (int i = 0; i < 10 && status != ALIENFX_BUSY && status != ALIENFX_NEW_BUSY; i++)
+		for (int i = 0; i < 10 && (status = AlienFX_SDK::Functions::AlienfxGetDeviceStatus()) != ALIENFX_BUSY && status != ALIENFX_NEW_BUSY; i++)
 		{
 			if (status == ALIENFX_DEVICE_RESET)
 				return status;
 			Sleep(5);
-			status = AlienFX_SDK::Functions::AlienfxGetDeviceStatus();
 		}
 		return status;
 	}
@@ -751,62 +752,21 @@ namespace AlienFX_SDK
 		int status;
 		switch (length) {
 		case API_V3: {
-			status = AlienFX_SDK::Functions::AlienfxGetDeviceStatus();
-/*#ifdef _DEBUG
-			if (status != ALIENFX_NEW_READY && status != ALIENFX_NEW_WAITUPDATE) {
-				WCHAR buff[2048];
-				wsprintf(buff, L"Status: %d\n", status);
-				OutputDebugString(buff);
-			}
-#endif*/
-			return status == ALIENFX_NEW_READY || status == ALIENFX_NEW_WAITUPDATE;
+			status = AlienfxGetDeviceStatus();
+			return status == 0 || status == ALIENFX_NEW_READY || status == ALIENFX_NEW_WAITUPDATE;
 		} break;
 		case API_V2: case API_V1: {
-			status = AlienfxWaitForBusy();
-
-			if (status == ALIENFX_DEVICE_RESET)
-			{
-				Sleep(1000);
-
-				return false;
-				//AlienfxReinit();
-
+			switch (AlienfxGetDeviceStatus()) {
+			case ALIENFX_READY:
+				return true; break;
+			case ALIENFX_BUSY:
+				Reset(0x04);
+				return AlienfxWaitForReady() == ALIENFX_READY;
+			case ALIENFX_DEVICE_RESET:
+				return AlienfxWaitForReady() == ALIENFX_READY;
+				break;
 			}
-			else if (status != ALIENFX_BUSY)
-			{
-				Sleep(50);
-			}
-			Reset(0x04);
-
-			status = AlienfxWaitForReady();
-			if (status == ALIENFX_DEVICE_RESET)
-			{
-				Sleep(1000);
-				//AlienfxReinit();
-
-				return false;
-			}
-			else if (status != ALIENFX_READY)
-			{
-				if (status == ALIENFX_BUSY)
-				{
-					Reset(0x04);
-
-					status = AlienfxWaitForReady();
-					if (status == ALIENFX_DEVICE_RESET)
-					{
-						Sleep(1000);
-						//AlienfxReinit();
-						return false;
-					}
-				}
-				else
-				{
-					Sleep(50);
-
-					return false;
-				}
-			}
+			return false;
 		} break;
 		}
 		return true;
@@ -873,11 +833,10 @@ namespace AlienFX_SDK
 			0,
 			NULL,
 			REG_OPTION_NON_VOLATILE,
-			KEY_ALL_ACCESS,//KEY_WRITE,
+			KEY_ALL_ACCESS,
 			NULL,
 			&hKey1,
 			&dwDisposition);
-		//int size = 4;
 
 		unsigned vindex = 0; mapping map; devmap dev;
 		char name[255], inarray[255];
@@ -930,23 +889,13 @@ namespace AlienFX_SDK
 		size_t numdevs = devices.size();
 		size_t numlights = mappings.size();
 		if (numdevs == 0) return;
-		RegCreateKeyEx(HKEY_CURRENT_USER,
-			TEXT("SOFTWARE"),
-			0,
-			NULL,
-			REG_OPTION_NON_VOLATILE,
-			KEY_ALL_ACCESS,//KEY_WRITE,
-			NULL,
-			&hKey1,
-			&dwDisposition);
-		RegDeleteTreeA(hKey1, "Alienfx_SDK");
-		RegCloseKey(hKey1);
+		
 		RegCreateKeyEx(HKEY_CURRENT_USER,
 			TEXT("SOFTWARE\\Alienfx_SDK"),
 			0,
 			NULL,
 			REG_OPTION_NON_VOLATILE,
-			KEY_ALL_ACCESS,//KEY_WRITE,
+			KEY_ALL_ACCESS,
 			NULL,
 			&hKey1,
 			&dwDisposition);
@@ -965,6 +914,7 @@ namespace AlienFX_SDK
 				(DWORD)devices[i].name.size()
 			);
 		}
+
 		for (int i = 0; i < numlights; i++) {
 			//preparing name
 			sprintf_s((char*)name, 255, "%d-%d", mappings[i].devid, mappings[i].lightid);
@@ -988,6 +938,24 @@ namespace AlienFX_SDK
 				4
 			);
 		}
+
+		std::vector <mapping> oldMappings = mappings;
+		LoadMappings();
+		// remove non-existing mappings...
+		for (int i = 0; i < mappings.size(); i++) {
+			int j;
+			for (j = 0; j < numlights && (mappings[i].devid != oldMappings[j].devid ||
+				mappings[i].lightid != oldMappings[j].lightid); j++);
+			if (j == numlights) { // no mapping found, delete...
+				sprintf_s((char*)name, 255, "%d-%d", mappings[i].devid, mappings[i].lightid);
+				RegDeleteValueA(hKey1, name);
+				sprintf_s((char*)name, 255, "Flags%d-%d", mappings[i].devid, mappings[i].lightid);
+				RegDeleteValueA(hKey1, name);
+			}
+		}
+
+		mappings = oldMappings;
+
 		RegCloseKey(hKey1);
 	}
 
