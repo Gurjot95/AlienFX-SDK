@@ -8,7 +8,8 @@ using namespace std;
 
 int main()
 {
-	int isInit = AlienFX_SDK::Functions::AlienFXInitialize(AlienFX_SDK::Functions::vid2);
+	AlienFX_SDK::Functions afx_dev;
+	int isInit = afx_dev.AlienFXInitialize(AlienFX_SDK::vid);
 	std::cout << "PID: " << std::hex << isInit << std::endl;
 	if (isInit != -1)
 	{
@@ -20,19 +21,19 @@ int main()
 		//	std::cout << "Reset faled with " << std::hex << GetLastError() << std::endl;
 		//	return 1;
 		//}
-		cout << "API v" << AlienFX_SDK::Functions::GetVersion() << endl;
+		cout << "API v" << afx_dev.GetVersion() << endl;
 		cout << "Now try to set colors...." << endl;
 
-		int ret = AlienFX_SDK::Functions::SetColor(22, 255, 0, 0);
+		int ret = afx_dev.SetColor(22, 255, 0, 0);
 		cout << "Set color result " << ret << endl;
-		ret = AlienFX_SDK::Functions::UpdateColors();
+		ret = afx_dev.UpdateColors();
 		cout << "Update result " << ret << endl;
 		cin.get();
 		cout << "Ok, how about multi colors?" << endl;
-		AlienFX_SDK::Functions::SetColor(23, 255, 0, 0);
-		AlienFX_SDK::Functions::SetColor(24, 0, 255, 0);
-		AlienFX_SDK::Functions::SetColor(25, 0, 0, 255);
-		AlienFX_SDK::Functions::UpdateColors();
+		afx_dev.SetColor(23, 255, 0, 0);
+		afx_dev.SetColor(24, 0, 255, 0);
+		afx_dev.SetColor(25, 0, 0, 255);
+		afx_dev.UpdateColors();
 		cin.get();
 		cout << "That's all for now, exiting." << endl;
 		return 0;
@@ -49,9 +50,9 @@ int main()
 		//std::cout << "PowerAction state: " << std::dec << (int)AlienFX_SDK::Functions::AlienfxGetDeviceStatus() << std::endl;
 		//AlienFX_SDK::Functions::SetColor(AlienFX_SDK::Index::AlienFX_leftMiddleZone, 0, 0, 255); //b
 		//AlienFX_SDK::Functions::SetColor(AlienFX_SDK::Index::AlienFX_rightMiddleZone, 0, 255, 0); // g - right
-		AlienFX_SDK::Functions::SetColor(4, 0, 255, 0); // right middle
+		afx_dev.SetColor(4, 0, 255, 0); // right middle
 		//std::cout << "BeforeUpdate state: " << std::dec << (int)AlienFX_SDK::Functions::AlienfxGetDeviceStatus() << std::endl;
-		AlienFX_SDK::Functions::UpdateColors();
+		afx_dev.UpdateColors();
 		//std::cout << "Update state:" << std::dec << (int)AlienFX_SDK::Functions::AlienfxGetDeviceStatus();
 		/*for (int i = 0; i < 16; i++) { // let's test all lights...
 			std::cout << "Set zone " << std::dec << i << std::endl;
@@ -60,7 +61,7 @@ int main()
 			Sleep(200);
 			std::cin.get();
 		}*/
-		AlienFX_SDK::Functions::AlienFXClose();
+		afx_dev.AlienFXClose();
 	}
 	else
 		cout << "Can't init device!" << endl;
