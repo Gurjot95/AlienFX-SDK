@@ -6,7 +6,7 @@ This SDK not only fixes up its issue and performs better but is written from scr
 
 Please checkout Sample App for reference.
 
-**Currently tested on AW13/R3, AW15R2/R3, AW17R3/R4 but should be working with all alienware laptops.**
+**Currently tested on AW13/R2, AW13/R3, AWM14x, AW15R2/R3, AW17R3/R4, AWm15/R1, AWm17/R1, Dell G5, but should be working with all alienware laptops.**
 
 ### Initialization
 ```C++
@@ -33,10 +33,13 @@ AlienFX_SDK::Functions::SetColor(AlienFX_SDK::Index::AlienFX_rightZone, 25, 114,
 //This is important to apply the updated color changes. Should only be called once after you're done with new colors.
 AlienFX_SDK::Functions::UpdateColors();
 ```
+### Probe app
+In [Releases](https://github.com/T-Troll/AlienFX-SDK/releases), you can find simple probe app - it shows DeviceID, DeviceVersion, then tries to switch lights to green position-by-position. Don't forget to share it's results for you gear!
 
 ### Projects using this SDK
 
 [Project Aurora](https://github.com/antonpup/Aurora).
+[Project AlienFx-tools](https://github.com/T-Troll/alienfx-tools).
 
 ##### Special Thanks
 Thanks go to Ingrater (http://3d.benjamin-thaut.de/) for his work on AlienFX and providing the protocol for me to work on.
