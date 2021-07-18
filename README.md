@@ -47,7 +47,7 @@ vector<pair<DWORD,DWORD>> device_list;
 device_list = info_object.AlienFXEnumDevices();
 
 // now let's init first of them
-int pid = AlienFX_SDK::Functions::AlienFXInitialize(device_list.first, device_list.second);
+int pid = AlienFX_SDK::Functions::AlienFXInitialize(device_list[0].first, device_list[0].second);
 
 
 ```
