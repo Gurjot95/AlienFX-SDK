@@ -51,22 +51,26 @@ namespace AlienFX_SDK
 
 	static struct COMMV5 {
 		// Start command block
-		const byte reset[2] = { 0xcc, 0x94 };
-		// request status - doesn/t used
-		byte status[2] = {0xcc, 0x93};
+		const byte reset[2] = {0xcc, 0x94};
+		const byte status[2] = {0xcc, 0x93};
+		const byte colorSet[4] = {0xcc, 0x8c, 0x02, 0x00 };
+		const byte loop[3] = {0xcc, 0x8c, 0x13};
+		const byte update[4] = {0xcc, 0x8b, 0x01, 0xff}; // fe, 59
+		// Seems like row masks: 8c 01 XX - 01, 02, 05, 08, 09, 0e
+		// And other masks: 8c XX - 05, 06, 07 (3 in each)
 		// first 3 rows bitmask map
-		byte colorSel5[64] = {0xcc,0x8c,05,00,01,01,01,01,01,01,01,01,01,01,01,01,
-			                    01,  01,01,01,00,00,00,00,01,01,01,01,01,01,01,01,
-			                    01,  01,01,01,01,01,00,01,00,00,00,00,01,00,01,01,
-			                    01,  01,01,01,01,01,01,01,01,01,01,01,00,00,00,01};
+		//byte colorSel5[64] = {0xcc,0x8c,05,00,01,01,01,01,01,01,01,01,01,01,01,01,
+		//	                    01,  01,01,01,00,00,00,00,01,01,01,01,01,01,01,01,
+		//	                    01,  01,01,01,01,01,00,01,00,00,00,00,01,00,01,01,
+		//	                    01,  01,01,01,01,01,01,01,01,01,01,01,00,00,00,01};
 		//// secnd 4 rows bitmask map
-		byte colorSel6[60] = {0xcc,0x8c,06,00,00,01,01,01,01,01,01,01,01,01,01,01,
-			                    01,  01,01,00,00,00,00,00,00,01,01,01,01,01,01,01,
-			                    01,  01,01,01,01,00,01,00,00,00,00,00,01,01,00,01,
-			                    01,  01,00,00,00,00,01,01,01,01,01,01};
+		//byte colorSel6[60] = {0xcc,0x8c,06,00,00,01,01,01,01,01,01,01,01,01,01,01,
+		//	                    01,  01,01,00,00,00,00,00,00,01,01,01,01,01,01,01,
+		//	                    01,  01,01,01,01,00,01,00,00,00,00,00,01,01,00,01,
+		//	                    01,  01,00,00,00,00,01,01,01,01,01,01};
 		//// special row bitmask map
-		byte colorSel7[20] = {0xcc,0x8c,07,00,00,00,00,00,00,00,00,00,00,00,00,00,
-			                    00,  01,01,01};
+		//byte colorSel7[20] = {0xcc,0x8c,07,00,00,00,00,00,00,00,00,00,00,00,00,00,
+		//	                    00,  01,01,01};
 		//// Unclear, effects?
 		//byte colorSel[18] = //{0xcc, 0x8c, 0x01, 0x01, 0x01, 0x00, 0x00, 0x01, 0x01, 0x01, 0x00, 0xff, 0x00, 0x00, 0xff,
 		//                    // 0x00, 0x00, 0x01};
@@ -74,9 +78,6 @@ namespace AlienFX_SDK
 		//					// 0xf0, 0xf0, 0x01};
 		//					{0xcc, 0x8c, 0x01, 0x01, 0x01, 0x00, 0x00, 0x01, 0x01, 0x01, 0x00, 0x00, 0xff, 0x00, 0x00, 
 		//					 0xff, 0x00, 0x01};
-		const byte colorSet[4] = {0xcc, 0x8c, 0x02, 0x00 };
-		const byte loop[3] = {0xcc, 0x8c, 0x13};
-		const byte update[4] = {0xcc, 0x8b, 0x01, 0xff}; // fe, 59
 		const byte turnOnInit[56] = 
 		                     {0xcc,0x79,0x7b,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
 			                  0xff,0xff,0xff,0xff,0xff,0xff,0x7c,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
@@ -819,8 +820,10 @@ namespace AlienFX_SDK
 		switch (length) {
 		case API_L_V5:
 		{
-			if (inSet) UpdateColors();
-			Reset(true);
+			if (inSet) { // not sure... Maybe reset mandatory.
+				UpdateColors();
+				Reset(true);
+			}
 			memcpy(buffer, COMMV5.turnOnInit, sizeof(COMMV5.turnOnInit));
 			HidD_SetFeature(devHandle, buffer, length);
 			ZeroMemory(buffer, length);
@@ -828,8 +831,6 @@ namespace AlienFX_SDK
 			HidD_SetFeature(devHandle, buffer, length);
 			ZeroMemory(buffer, length);
 			memcpy(buffer, COMMV5.turnOnSet, sizeof(COMMV5.turnOnSet));
-			//if (newState)
-			//	buffer[4] = 0xfe;
 			buffer[4] = brightness; // 00..ff
 			return HidD_SetFeature(devHandle, buffer, length);
 		} break;
@@ -840,8 +841,6 @@ namespace AlienFX_SDK
 			HidD_SetOutputReport(devHandle, buffer, length);
 			ZeroMemory(buffer, length);
 			memcpy(buffer, COMMV4.turnOn, sizeof(COMMV4.turnOn));
-			//if (!newState)
-			//	buffer[3] = 0x64;
 			buffer[3] = 0x64 - (brightness >> 2); // 00..64
 			byte pos = 6, pindex = 0;
 			for (int i = 0; i < mappings->size(); i++) {
