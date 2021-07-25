@@ -85,6 +85,8 @@ namespace AlienFX_SDK
 			                  0xff,0xff,0x00,0xff,0xff,0xff,0x00,0x77};
 		const byte turnOnInit2[3] = {0xcc,0x79,0x88};
 		const byte turnOnSet[4] = {0xcc,0x83,0x38,0x9c};
+		// [2],[3]=type, [9]=?, [10..12]=RGB1, [13..15]=RGB2, [16]=?
+		const byte setEffect[9] = {0xcc,0x80,0x02,0x07,0x00,0x00,0x01,0x01,0x01};// , 0x00, 0x00, 0xff, 0xff, 0x00, 0xff, 0xff, 0x05
 	} COMMV5;
 
 	void Functions::SetMaskAndColor(int index, byte* buffer, byte r1, byte g1, byte b1, byte r2, byte g2, byte b2) {
@@ -136,28 +138,29 @@ namespace AlienFX_SDK
 		unsigned int dw = 0;
 		SP_DEVICE_INTERFACE_DATA deviceInterfaceData;
 
-		unsigned int lastError = 0;
+		//unsigned int lastError = 0;
 		while (!flag)
 		{
 			deviceInterfaceData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
 			if (!SetupDiEnumDeviceInterfaces(hDevInfo, NULL, &guid, dw, &deviceInterfaceData))
 			{
-				lastError = GetLastError();
-				return pid;
+				//lastError = GetLastError();
+				flag = true;
+				continue;
 			}
 			dw++;
 			DWORD dwRequiredSize = 0;
 			if (SetupDiGetDeviceInterfaceDetailW(hDevInfo, &deviceInterfaceData, NULL, 0, &dwRequiredSize, NULL))
 			{
 				//std::cout << "Getting the needed buffer size failed";
-				return pid;
+				continue;
 			}
 			//std::cout << "Required size is " << dwRequiredSize << std::endl;
-			if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
-			{
-				//std::cout << "Last error is not ERROR_INSUFFICIENT_BUFFER";
-				return pid;
-			}
+			//if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+			//{
+			//	//std::cout << "Last error is not ERROR_INSUFFICIENT_BUFFER";
+			//	return pid;
+			//}
 			std::unique_ptr<SP_DEVICE_INTERFACE_DETAIL_DATA> deviceInterfaceDetailData((SP_DEVICE_INTERFACE_DETAIL_DATA*)new char[dwRequiredSize]);
 			deviceInterfaceDetailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
 			if (SetupDiGetDeviceInterfaceDetailW(hDevInfo, &deviceInterfaceData, deviceInterfaceDetailData.get(), dwRequiredSize, NULL, NULL))
@@ -195,12 +198,7 @@ namespace AlienFX_SDK
 								switch (caps.OutputReportByteLength) {
 								case 0: length = caps.FeatureReportByteLength;
 									break;
-								//case 9: length = caps.OutputReportByteLength; //length = attributes->Size;
-								//	if (attributes->ProductID > 0x529)
-								//		version = API_V25;
-								//	else
-								//		version = API_V2;
-								//	break;
+								// attributes->version between v1 and v2!
 								default: length = caps.OutputReportByteLength;
 								}
 
@@ -215,13 +213,17 @@ namespace AlienFX_SDK
 								cout << "Attributes - length: " << attributes->Size << ", version: " << attributes->VersionNumber << endl;
 								wprintf(L"Path: %s\n%s", devicePath.c_str(), buff);
 #endif
-							}
-						}
-					}
+							} else
+								CloseHandle(devHandle);
+						} else
+							CloseHandle(devHandle);
+					} else
+						CloseHandle(devHandle);
 
 				}
 			}
 		}
+		SetupDiDestroyDeviceInfoList(hDevInfo);
 		return pid;
 	}
 
@@ -872,17 +874,47 @@ namespace AlienFX_SDK
 		return false;
 	}
 
+	bool Functions::SetGlobalEffects(vector<mapping>* mappings, byte effType, byte effType2, afx_act act1, afx_act act2) {
+		byte buffer[MAX_BUFFERSIZE] = {0};
+		switch (length) {
+		case API_L_V5:
+		{
+			if (!inSet) Reset(true);
+			memcpy(buffer, COMMV5.setEffect, sizeof(COMMV5.setEffect));
+			// [2],[3]=type, [9]=?, [10..12]=RGB1, [13..15]=RGB2, [16]=?
+			buffer[2] = effType;
+			buffer[3] = effType2;
+			// ???? 0 or 1 (for color). Stable?
+			buffer[9] = 0;
+			// colors...
+			buffer[10] = act1.r;
+			buffer[11] = act1.g;
+			buffer[12] = act1.b;
+			buffer[13] = act2.r;
+			buffer[14] = act2.g;
+			buffer[15] = act2.b;
+			// ???? 0 for rainbow, 1 for breath, 5 for color.
+			buffer[16] = 0x1;
+			HidD_SetFeature(devHandle, buffer, length);
+			UpdateColors();
+			return true;
+		} break;
+		default: return true;
+		}
+		return false;
+	}
+
 	BYTE Functions::AlienfxGetDeviceStatus()
 	{
-		if (pid == -1) return 0;
+		//if (pid == -1) return 0;
 		byte ret = 0;
 		byte buffer[MAX_BUFFERSIZE] = {0};
 		switch (length) {
 		case API_L_V5:
 		{
-			memcpy(buffer, COMMV5.status, sizeof(COMMV5.status));
-			HidD_SetOutputReport(devHandle, buffer, length);
-			buffer[0] = 0xcc;
+			//memcpy(buffer, COMMV5.status, sizeof(COMMV5.status));
+			//HidD_SetOutputReport(devHandle, buffer, length);
+			//buffer[0] = 0xcc;
 			if (HidD_GetFeature(devHandle, buffer, length))
 				ret = buffer[2];
 #ifdef _DEBUG
@@ -895,7 +927,7 @@ namespace AlienFX_SDK
 			//default: cout << "Unknown (" << GetLastError() << ")";
 			//}
 			//cout <<  endl;
-			//cout << "Data: " << buffer[0] << "," << buffer[1] << "," << buffer[2] << endl;
+			cout << "Status data: " << hex << (int)buffer[2] << "," << (int)buffer[14] << "," << (int)buffer[15] << endl;
 #endif
 		} break;
 		case API_L_V4: {
@@ -1026,13 +1058,13 @@ namespace AlienFX_SDK
 		unsigned int dw = 0;
 		SP_DEVICE_INTERFACE_DATA deviceInterfaceData;
 
-		unsigned int lastError = 0;
+		//unsigned int lastError = 0;
 		while (!flag)
 		{
 			deviceInterfaceData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
 			if (!SetupDiEnumDeviceInterfaces(hDevInfo, NULL, &guid, dw, &deviceInterfaceData))
 			{
-				lastError = GetLastError();
+				//lastError = GetLastError();
 				flag = true;
 				continue;
 			}
@@ -1042,10 +1074,10 @@ namespace AlienFX_SDK
 			{
 				continue;
 			}
-			if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
-			{
-				continue;
-			}
+			//if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+			//{
+			//	continue;
+			//}
 			std::unique_ptr<SP_DEVICE_INTERFACE_DETAIL_DATA> deviceInterfaceDetailData((SP_DEVICE_INTERFACE_DETAIL_DATA*)new char[dwRequiredSize]);
 			deviceInterfaceDetailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
 			if (SetupDiGetDeviceInterfaceDetailW(hDevInfo, &deviceInterfaceData, deviceInterfaceDetailData.get(), dwRequiredSize, NULL, NULL))
@@ -1059,7 +1091,7 @@ namespace AlienFX_SDK
 					attributes->Size = sizeof(HIDD_ATTRIBUTES);
 					if (HidD_GetAttributes(tdevHandle, attributes.get()))
 					{
-						for (unsigned i = 0; i < sizeof(vids)/4; i++) {
+						for (unsigned i = 0; i < sizeof(vids)/sizeof(DWORD); i++) {
 							if (attributes->VendorID == vids[i]) {
 
 								PHIDP_PREPARSED_DATA prep_caps;
@@ -1085,10 +1117,11 @@ namespace AlienFX_SDK
 							}
 						}
 					}
+					CloseHandle(tdevHandle);
 				}
-				CloseHandle(tdevHandle);
 			}
 		}
+		SetupDiDestroyDeviceInfoList(hDevInfo);
 		return pids;
 	}	
 
