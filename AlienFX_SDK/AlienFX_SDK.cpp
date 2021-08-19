@@ -1,7 +1,5 @@
 #include "stdafx.h"
 #include <Setupapi.h>
-//#include <codecvt>
-//#include <locale>
 #include "AlienFX_SDK.h"  
 #include <iostream>
 extern "C" {
@@ -708,7 +706,7 @@ namespace AlienFX_SDK
 			if (!inSet) Reset();
 			//now prepare buffers, we need 2 more for PreSave/Save
 			byte* buf_presave = new byte[length],
-				*buf_save = new byte[length];
+				* buf_save = new byte[length];
 			ZeroMemory(buf_presave, length);
 			ZeroMemory(buf_save, length);
 			memcpy(buf_presave, COMMV1.saveGroup, sizeof(COMMV1.saveGroup));
@@ -723,14 +721,18 @@ namespace AlienFX_SDK
 				if (lights[nc] != index) {
 					HidD_SetOutputReport(devHandle, buf_presave, length);
 					SetAction(lights[nc], act->at(nc));
+					//HidD_SetOutputReport(devHandle, buf_presave, length);
+					//Loop();
 				}
 			}
 			//SetMaskAndColor(index, buffer, Red, Green, Blue);
 			//HidD_SetOutputReport(devHandle, buffer, length);
 			//Loop();
-			HidD_SetOutputReport(devHandle, buf_save, length);
-			Reset();
-
+			if (size > 0) {
+				HidD_SetOutputReport(devHandle, buf_save, length);
+				Reset();
+			}
+	
 			if (index >= 0) {
 				DWORD invMask = ~((1 << index));// | 0x8000); // what is 8000? Macro?
 			// 08 02 - standby
@@ -771,7 +773,7 @@ namespace AlienFX_SDK
 				HidD_SetOutputReport(devHandle, buf_save, length);
 				Reset();
 				// 08 06 - charge
-				buf_presave[2] = 0x2;
+				buf_presave[2] = 0x6;
 				buffer[1] = 0x1;
 				buffer[2] = 0x1;
 				SetMaskAndColor(index, buffer, Red, Green, Blue, Red2, Green2, Blue2);
@@ -785,44 +787,45 @@ namespace AlienFX_SDK
 				Loop();
 				HidD_SetOutputReport(devHandle, buf_save, length);
 				Reset();
-				// 08 07 - ??? batt critical?
-				//buf_presave[2] = 0x7;
-				//buffer[1] = 0x1;
-				//buffer[2] = 0x1;
-				//SetMaskAndColor(index, buffer, Red2, Green2, Blue2);
-				//AlienfxWaitForReady();
-				//HidD_SetOutputReport(devHandle, buf_presave, length);
-				//HidD_SetOutputReport(devHandle, buffer, length);
+				// 08 07 - Battery
+				buf_presave[2] = 0x7;
+				buffer[1] = 0x3;
+				buffer[2] = 0x1;
+				SetMaskAndColor(index, buffer, Red2, Green2, Blue2);
+				AlienfxWaitForReady();
+				HidD_SetOutputReport(devHandle, buf_presave, length);
+				HidD_SetOutputReport(devHandle, buffer, length);
 				//SetMaskAndColor(index, buffer, 0, 0, 0, Red2, Green2, Blue2);
 				//HidD_SetOutputReport(devHandle, buf_presave, length);
 				//HidD_SetOutputReport(devHandle, buffer, length);
-				//HidD_SetOutputReport(devHandle, buf_presave, length);
-				//Loop();
-				//HidD_SetOutputReport(devHandle, buf_presave, length);
-				//// now inverse mask... let's constant.
-				//ZeroMemory(buffer, length);
-				//memcpy(buffer, COMMV1.color, sizeof(COMMV1.color));
-				//buffer[2] = 0x2;
-				//buffer[3] = (byte) ((invMask & 0xFF0000) >> 16);
-				//buffer[4] = (byte) ((invMask & 0x00FF00) >> 8);
-				//buffer[5] = (byte) (invMask & 0x0000FF);
-				//HidD_SetOutputReport(devHandle, buffer, length);
-				//HidD_SetOutputReport(devHandle, buf_presave, length);
-				//Loop();
-				//HidD_SetOutputReport(devHandle, buf_save, length);
-				//Reset();
-				// 08 08 - battery
-				buf_presave[2] = 0x8;
-				SetMaskAndColor(index, buffer, Red2, Green2, Blue2);
-				buffer[2] = 0x1;
-				AlienfxWaitForReady();
 				HidD_SetOutputReport(devHandle, buf_presave, length);
+				Loop();
+				HidD_SetOutputReport(devHandle, buf_presave, length);
+				// now inverse mask... let's constant.
+				ZeroMemory(buffer, length);
+				memcpy(buffer, COMMV1.color, sizeof(COMMV1.color));
+				buffer[2] = 0x2;
+				buffer[3] = (byte) ((invMask & 0xFF0000) >> 16);
+				buffer[4] = (byte) ((invMask & 0x00FF00) >> 8);
+				buffer[5] = (byte) (invMask & 0x0000FF);
 				HidD_SetOutputReport(devHandle, buffer, length);
 				HidD_SetOutputReport(devHandle, buf_presave, length);
 				Loop();
 				HidD_SetOutputReport(devHandle, buf_save, length);
 				Reset();
-				// 08 09 - ???
+				// 08 08 - battery
+				//buf_presave[2] = 0x8;
+				//SetMaskAndColor(index, buffer, Red2, Green2, Blue2);
+				//buffer[1] = 0x3;
+				//buffer[2] = 0x1;
+				//AlienfxWaitForReady();
+				//HidD_SetOutputReport(devHandle, buf_presave, length);
+				//HidD_SetOutputReport(devHandle, buffer, length);
+				//HidD_SetOutputReport(devHandle, buf_presave, length);
+				//Loop();
+				//HidD_SetOutputReport(devHandle, buf_save, length);
+				//Reset();
+				// 08 09 - batt critical
 				buf_presave[2] = 0x9;
 				buffer[1] = 0x2;
 				AlienfxWaitForReady();
@@ -837,13 +840,14 @@ namespace AlienFX_SDK
 				//buffer[2] = 1;
 				//buffer[3] = buffer[4] = buffer[5] = buffer[6] = buffer[7] = buffer[8] = 0;
 				// fix for immediate change
+				buffer[1] = 3;
 				SetMaskAndColor(index, buffer, Red, Green, Blue);
 				AlienfxWaitForReady();
 				HidD_SetOutputReport(devHandle, buffer, length);
 				Loop();
-				//ZeroMemory(buffer, length);
-				//memcpy(buffer, COMMV1.apply, sizeof(COMMV1.apply));
-				//HidD_SetOutputReport(devHandle, buffer, length);
+				////ZeroMemory(buffer, length);
+				////memcpy(buffer, COMMV1.apply, sizeof(COMMV1.apply));
+				////HidD_SetOutputReport(devHandle, buffer, length);
 				UpdateColors();
 				Reset();
 				AlienfxWaitForReady();
@@ -884,7 +888,7 @@ namespace AlienFX_SDK
 			HidD_SetOutputReport(devHandle, buffer, length);
 			ZeroMemory(buffer, length);
 			memcpy(buffer, COMMV4.turnOn, sizeof(COMMV4.turnOn));
-			buffer[3] = 0x64 - (brightness >> 2); // 00..64
+			buffer[3] = 0x64 - (((UINT)brightness) * 0x64 / 0xff); // 00..64
 			byte pos = 6, pindex = 0;
 			for (int i = 0; i < mappings->size(); i++) {
 				mapping cur = mappings->at(i);
@@ -911,18 +915,6 @@ namespace AlienFX_SDK
 
 			res = HidD_SetOutputReport(devHandle, buffer, length);
 			AlienfxWaitForReady();
-			//if (power)
-			//	return Reset(brightness);
-			//else
-			//	if (!brightness) {
-			//		for (int i = 0; i < mappings->size(); i++) {
-			//			mapping cur = mappings->at(i);
-			//			if (cur.devid == pid && !cur.flags) {
-			//				SetColor(cur.lightid, 0, 0, 0);
-			//			}
-			//		}
-			//		UpdateColors();
-			//	}
 			return res;
 		} break;
 		}
@@ -951,7 +943,7 @@ namespace AlienFX_SDK
 			*/
 			buffer[2] = effType;
 			// 0-f
-			buffer[3] = (BYTE) (tempo >> 4);
+			buffer[3] = (BYTE) tempo;
 			// ???? 0 or 1 (for color). Stable?
 			buffer[9] = 0;
 			// colors...
@@ -967,19 +959,6 @@ namespace AlienFX_SDK
 			UpdateColors();
 			return true;
 		} break;
-		//case API_L_V1: case API_L_V2: case API_L_V3:
-		//{
-		//	// can only set tempo.
-		//	// 0-fff
-		//	tempo = tempo << 4;
-		//	memcpy(buffer, COMMV1.setTempo, sizeof(COMMV1.setTempo));
-		//	buffer[2] = (byte) ((tempo & 0xff00) >> 8);
-		//	buffer[3] = (byte) (tempo & 0xff);
-		//	if (!inSet) Reset();
-		//	HidD_SetOutputReport(devHandle, buffer, length);
-		//	UpdateColors();
-		//	return true;
-		//} break;
 		default: return true;
 		}
 		return false;
@@ -987,7 +966,6 @@ namespace AlienFX_SDK
 
 	BYTE Functions::AlienfxGetDeviceStatus()
 	{
-		//if (pid == -1) return 0;
 		byte ret = 0;
 		byte buffer[MAX_BUFFERSIZE] = {0};
 		switch (length) {
@@ -1134,13 +1112,11 @@ namespace AlienFX_SDK
 		unsigned int dw = 0;
 		SP_DEVICE_INTERFACE_DATA deviceInterfaceData;
 
-		//unsigned int lastError = 0;
 		while (!flag)
 		{
 			deviceInterfaceData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
 			if (!SetupDiEnumDeviceInterfaces(hDevInfo, NULL, &guid, dw, &deviceInterfaceData))
 			{
-				//lastError = GetLastError();
 				flag = true;
 				continue;
 			}
@@ -1150,10 +1126,6 @@ namespace AlienFX_SDK
 			{
 				continue;
 			}
-			//if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
-			//{
-			//	continue;
-			//}
 			std::unique_ptr<SP_DEVICE_INTERFACE_DETAIL_DATA> deviceInterfaceDetailData((SP_DEVICE_INTERFACE_DETAIL_DATA*)new char[dwRequiredSize]);
 			deviceInterfaceDetailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
 			if (SetupDiGetDeviceInterfaceDetailW(hDevInfo, &deviceInterfaceData, deviceInterfaceDetailData.get(), dwRequiredSize, NULL, NULL))
@@ -1200,6 +1172,20 @@ namespace AlienFX_SDK
 		SetupDiDestroyDeviceInfoList(hDevInfo);
 		return pids;
 	}	
+
+	devmap* Mappings::GetDeviceById(int devID, int vid) {
+		for (int i = 0; i < devices.size(); i++)
+			if (devices[i].devid == devID)
+				// vid check, if any
+				if (vid && devices[i].vid)
+					if (vid == devices[i].vid)
+						return &devices[i];
+					else
+						return nullptr;
+				else
+					return &devices[i];
+		return nullptr;
+	}
 
 	mapping* Mappings::GetMappingById(int devID, int LightID) {
 		for (int i = 0; i < mappings.size(); i++)
@@ -1294,8 +1280,17 @@ namespace AlienFX_SDK
 					AddMapping(dID, lID, NULL, *(unsigned *)inarray);
 					continue;
 				}
+				// New devID format
+				if (sscanf_s((char*)name, "Dev#%d_%d", &dev.vid, &dev.devid) == 2) {
+					std::string devname(inarray);
+					dev.name = devname;
+					devices.push_back(dev);
+					continue;
+				}
+				// old devID format
 				if (sscanf_s((char*)name, "Dev#%d", &dev.devid) == 1) {
 					std::string devname(inarray);
+					dev.vid = 0;
 					dev.name = devname;
 					devices.push_back(dev);
 					continue;
@@ -1342,6 +1337,9 @@ namespace AlienFX_SDK
 		size_t numlights = mappings.size();
 		size_t numGroups = groups.size();
 		if (numdevs == 0) return;
+
+		// Remove all maps!
+		RegDeleteTree(HKEY_CURRENT_USER, TEXT("SOFTWARE\\Alienfx_SDK"));
 		
 		RegCreateKeyEx(HKEY_CURRENT_USER,
 			TEXT("SOFTWARE\\Alienfx_SDK"),
@@ -1352,15 +1350,15 @@ namespace AlienFX_SDK
 			NULL,
 			&hKey1,
 			&dwDisposition);
-		char name[1024];
+		//char name[1024];
 
 		for (int i = 0; i < numdevs; i++) {
 			//preparing name
-			sprintf_s(name, 255, "Dev#%d", devices[i].devid);
+			string name = "Dev#" + to_string(devices[i].vid) + "_" + to_string(devices[i].devid);
 
 			RegSetValueExA(
 				hKey1,
-				name,
+				name.c_str(),
 				0,
 				REG_SZ,
 				(BYTE*)devices[i].name.c_str(),
@@ -1370,9 +1368,9 @@ namespace AlienFX_SDK
 
 		for (int i = 0; i < numlights; i++) {
 			// new format
-			sprintf_s((char*)name, 255, "Light%d-%d", mappings[i].devid, mappings[i].lightid);
+			string name = "Light" + to_string(mappings[i].devid) + "-" + to_string(mappings[i].lightid);
 
-			RegCreateKeyA(hKey1, name, &hKeyS);
+			RegCreateKeyA(hKey1, name.c_str(), &hKeyS);
 
 			RegSetValueExA(
 				hKeyS,
@@ -1391,14 +1389,14 @@ namespace AlienFX_SDK
 				(BYTE*)&mappings[i].flags,
 				sizeof(DWORD)
 			);
+			RegCloseKey(hKeyS);
 
 		}
 
-		DWORD grLights[1024];
 		for (int i = 0; i < numGroups; i++) {
-			sprintf_s((char*)name, 255, "Group%d", groups[i].gid);
+			string name = "Group" + to_string(groups[i].gid);
 
-			RegCreateKeyA(hKey1, name, &hKeyS);
+			RegCreateKeyA(hKey1, name.c_str(), &hKeyS);
 
 			RegSetValueExA(
 				hKeyS,
@@ -1408,6 +1406,8 @@ namespace AlienFX_SDK
 				(BYTE*)groups[i].name.c_str(),
 				(DWORD)groups[i].name.size()
 			);
+
+			DWORD* grLights = new DWORD[groups[i].lights.size()*2];
 
 			for (int j = 0; j < groups[i].lights.size(); j++) {
 				grLights[j * 2] = groups[i].lights[j]->devid;
@@ -1421,38 +1421,10 @@ namespace AlienFX_SDK
 				(BYTE*) grLights,
 				2 * (DWORD)groups[i].lights.size() * sizeof(DWORD)
 			);
-		}
 
-		std::vector <mapping> oldMappings = mappings;
-		std::vector <group> oldGroups = groups;
-		LoadMappings();
-		// remove non-existing mappings and groups...
-		for (int i = 0; i < mappings.size(); i++) {
-			int j;
-			sprintf_s((char*) name, 255, "%d-%d", mappings[i].devid, mappings[i].lightid);
-			RegDeleteValueA(hKey1, name);
-			sprintf_s((char*) name, 255, "Flags%d-%d", mappings[i].devid, mappings[i].lightid);
-			RegDeleteValueA(hKey1, name);
-			for (j = 0; j < oldMappings.size() && (mappings[i].devid != oldMappings[j].devid ||
-												   mappings[i].lightid != oldMappings[j].lightid); j++);
-
-			if (j == oldMappings.size()) { // no mapping found, delete...
-				sprintf_s((char*)name, 255, "Light%d-%d", mappings[i].devid, mappings[i].lightid);
-				RegDeleteKeyA(hKey1, name);
-			}
+			delete[] grLights;
+			RegCloseKey(hKeyS);
 		}
-		for (int i = 0; i < groups.size(); i++) {
-			int j;
-			for (j = 0; j < oldGroups.size() && groups[i].gid != oldGroups[j].gid; j++);
-			// Later, remove old mappings here!
-			if (j == oldGroups.size()) { // no group found, delete...
-				sprintf_s((char*)name, 255, "Group%d", groups[i].gid);
-				RegDeleteKeyA(hKey1, name);
-			}
-		}
-
-		mappings = oldMappings;
-		groups = oldGroups;
 
 		RegCloseKey(hKey1);
 	}
@@ -1487,6 +1459,10 @@ namespace AlienFX_SDK
 	int Functions::GetPID()
 	{
 		return pid;
+	}
+
+	int Functions::GetVid() {
+		return vid;
 	}
 
 	int Functions::GetVersion()
