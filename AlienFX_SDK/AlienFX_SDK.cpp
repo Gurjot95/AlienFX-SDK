@@ -1,6 +1,6 @@
-#include "stdafx.h"
+#define WIN32_LEAN_AND_MEAN
+#include "AlienFX_SDK.h"
 #include <Setupapi.h>
-#include "AlienFX_SDK.h"  
 #include <iostream>
 extern "C" {
 #include <hidclass.h>
@@ -30,14 +30,8 @@ namespace AlienFX_SDK
 		// 0x7 - batt critical (color, inverse mask after with index 2!) (morph batt-0, 0-batt)
 		// 0x8 - batt critical (morph batt-0)
 		// 0x9 - batt down (pulse batt-0)
-		// what is the mask 0x8000?
 		// 0x2 0x0 - end storage block
 		// Reset 0x1 - power & indi, 0x2 - sleep, 0x3 - off, 0x4 - on
-		//#define BLOCK_LOAD_ON_BOOT       	  0x01
-		//#define BLOCK_STANDBY            	  0x02
-		//#define BLOCK_AC_POWER           	  0x05
-		//#define BLOCK_CHARGING           	  0x06
-		//#define BLOCK_BAT_POWER          	  0x08
 
 	} COMMV1;
 

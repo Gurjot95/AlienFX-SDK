@@ -1,9 +1,11 @@
 #pragma once  
-#include "stdafx.h"
+#include <windows.h>
 #include <vector>
 #include <string>
 
 using namespace std;
+
+#define byte BYTE
 
 namespace AlienFX_SDK
 
