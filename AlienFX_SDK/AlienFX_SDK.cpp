@@ -227,7 +227,9 @@ namespace AlienFX_SDK
 		if (acc && acc != INVALID_HANDLE_VALUE) {
 			devHandle = acc;
 			vid = pid = length = API_L_ACPI;
-			return pid;
+			if (Reset()) {
+				return pid;
+			}
 		}
 		return -1;
 	}
@@ -259,8 +261,8 @@ namespace AlienFX_SDK
 	{
 		bool result = false;
 
-		byte buffer[MAX_BUFFERSIZE];
-		ZeroMemory(buffer, length);
+		byte buffer[MAX_BUFFERSIZE] = {0};
+
 		switch (length) {
 		case API_L_V5: {
 			memcpy(buffer, COMMV5.reset, sizeof(COMMV5.reset));
