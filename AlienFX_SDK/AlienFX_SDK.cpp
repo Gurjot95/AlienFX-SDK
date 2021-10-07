@@ -172,7 +172,7 @@ namespace AlienFX_SDK
 					if (HidD_GetAttributes(devHandle, attributes.get()))
 					{
 
-						if (((attributes->VendorID == vid) && (pidd == -1 || attributes->ProductID == pidd)))
+						if (((!vid || attributes->VendorID == vid) && (pidd == -1 || attributes->ProductID == pidd)))
 						{
 							// Check API version...
 							PHIDP_PREPARSED_DATA prep_caps;
@@ -631,11 +631,6 @@ namespace AlienFX_SDK
 				memcpy(buffer, COMMV1.color, sizeof(COMMV1.color));
 				for (size_t ca = 0; ca < act.size(); ca++) {
 					switch (act[ca].type) {
-					case AlienFX_A_Color: 
-						buffer[1] = 0x3;
-						SetMaskAndColor(index, buffer, act[ca].r, act[ca].g, act[ca].b);
-						res = HidD_SetOutputReport(devHandle, buffer, length);
-						break;
 					case AlienFX_A_Pulse:
 					{
 						buffer[1] = 0x2;
@@ -653,7 +648,12 @@ namespace AlienFX_SDK
 							res = HidD_SetOutputReport(devHandle, buffer, length);
 						}
 					} break;
-					//default: res = SetColor(index, act[0].r, act[0].g, act[0].b);
+					default:
+					{ //case AlienFX_A_Color:
+						buffer[1] = 0x3;
+						SetMaskAndColor(index, buffer, act[ca].r, act[ca].g, act[ca].b);
+						res = HidD_SetOutputReport(devHandle, buffer, length);
+					} //break;
 					}
 				}
 				Loop();
@@ -740,7 +740,11 @@ namespace AlienFX_SDK
 			buffer[4] = 6;
 			HidD_SetOutputReport(devHandle, buffer, length);
 			BYTE res = 0;
-			while ((res = IsDeviceReady()) && res != 255) Sleep(50);
+			int count = 0;
+			while ((res = IsDeviceReady()) && res != 255 && count < 10) {
+				Sleep(50);
+				count++;
+			}
 			while (!IsDeviceReady()) Sleep(100);
 			Reset();
 			inSet = false;
