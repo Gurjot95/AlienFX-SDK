@@ -1,15 +1,14 @@
 #define WIN32_LEAN_AND_MEAN
 #include "AlienFX_SDK.h"
-#include <Setupapi.h>
 #include <iostream>
 extern "C" {
 #include <hidclass.h>
 #include <hidsdi.h>
-#include <acpiioct.h>
+#ifndef NOACPILIGHTS
 #include "alienfan-low.h"
+#endif
 }
 
-#pragma comment(lib, "setupapi.lib")
 #pragma comment(lib, "hid.lib")
 
 namespace AlienFX_SDK {
@@ -118,6 +117,22 @@ namespace AlienFX_SDK {
 		return;
 	}
 
+	bool Functions::SetAcpiColor(byte mask, byte r, byte g, byte b) {
+#ifndef NOACPILIGHTS
+		PACPI_EVAL_OUTPUT_BUFFER resName = NULL;
+		PACPI_EVAL_INPUT_BUFFER_COMPLEX_EX acpiargs = NULL;
+		acpiargs = (PACPI_EVAL_INPUT_BUFFER_COMPLEX_EX) PutIntArg(NULL, r);
+		acpiargs = (PACPI_EVAL_INPUT_BUFFER_COMPLEX_EX) PutIntArg(acpiargs, g);
+		acpiargs = (PACPI_EVAL_INPUT_BUFFER_COMPLEX_EX) PutIntArg(acpiargs, b);
+		acpiargs = (PACPI_EVAL_INPUT_BUFFER_COMPLEX_EX) PutIntArg(acpiargs, mask);
+		if (EvalAcpiMethodArgs(devHandle, "\\_SB.AMW1.SETC", acpiargs, (PVOID *) &resName)) {
+			free(resName);
+			return true;
+		}
+#endif
+		return false;
+	}
+
 	//Use this method for general devices pid = -1 for full scan
 	int Functions::AlienFXInitialize(int vid, int pidd) {
 		GUID guid;
@@ -163,14 +178,14 @@ namespace AlienFX_SDK {
 							HidD_FreePreparsedData(prep_caps);
 
 							if (caps.OutputReportByteLength || caps.Usage == 0xcc) {
-#ifdef _DEBUG
-								cout << dec << "Output Report Length " << caps.OutputReportByteLength
-									<< ", Input Report Length " << caps.InputReportByteLength
-									<< ", Feature Report Length " << caps.FeatureReportByteLength
-									<< endl;
-								cout << hex << "Usage ID " << caps.Usage << ", Usage Page " << caps.UsagePage << endl;
-								cout << dec << "Output caps " << caps.NumberOutputButtonCaps << ", Index " << caps.NumberOutputDataIndices << endl;
-#endif
+//#ifdef _DEBUG
+//								cout << dec << "Output Report Length " << caps.OutputReportByteLength
+//									<< ", Input Report Length " << caps.InputReportByteLength
+//									<< ", Feature Report Length " << caps.FeatureReportByteLength
+//									<< endl;
+//								cout << hex << "Usage ID " << caps.Usage << ", Usage Page " << caps.UsagePage << endl;
+//								cout << dec << "Output caps " << caps.NumberOutputButtonCaps << ", Index " << caps.NumberOutputDataIndices << endl;
+//#endif
 								// Yes, now so easy...
 								switch (caps.OutputReportByteLength) {
 								case 0: length = caps.FeatureReportByteLength;
@@ -262,11 +277,13 @@ namespace AlienFX_SDK {
 		} break;
 		case API_L_ACPI:
 		{
+#ifndef NOACPILIGHTS
 			PACPI_EVAL_OUTPUT_BUFFER resName = NULL;
 			if (!inSet && EvalAcpiMethod(devHandle, "\\_SB.AMW1.ICPC", (PVOID *) &resName)) {
 				free(resName);
 				result = true;
 			}
+#endif
 		} break;
 		default: return false;
 		}
@@ -297,11 +314,13 @@ namespace AlienFX_SDK {
 		} break;
 		case API_L_ACPI:
 		{
+#ifndef NOACPILIGHTS
 			PACPI_EVAL_OUTPUT_BUFFER resName = NULL;
 			if (EvalAcpiMethod(devHandle, "\\_SB.AMW1.RCPC", (PVOID *) &resName)) {
 				free(resName);
 				res = true;
 			}
+#endif
 		} break;
 		default: return false;
 		}
@@ -365,16 +384,7 @@ namespace AlienFX_SDK {
 		case API_L_ACPI:
 		{
 			unsigned mask = 1 << index;
-			PACPI_EVAL_OUTPUT_BUFFER resName = NULL;
-			PACPI_EVAL_INPUT_BUFFER_COMPLEX_EX acpiargs = NULL;
-			acpiargs = (PACPI_EVAL_INPUT_BUFFER_COMPLEX_EX) PutIntArg(NULL, r);
-			acpiargs = (PACPI_EVAL_INPUT_BUFFER_COMPLEX_EX) PutIntArg(acpiargs, g);
-			acpiargs = (PACPI_EVAL_INPUT_BUFFER_COMPLEX_EX) PutIntArg(acpiargs, b);
-			acpiargs = (PACPI_EVAL_INPUT_BUFFER_COMPLEX_EX) PutIntArg(acpiargs, mask);
-			if (EvalAcpiMethodArgs(devHandle, "\\_SB.AMW1.SETC", acpiargs, (PVOID *) &resName)) {
-				free(resName);
-				return true;
-			}
+			val = SetAcpiColor(mask, r, g, b);
 		} break;
 		default: return false;
 		}
@@ -442,11 +452,18 @@ namespace AlienFX_SDK {
 			val = HidD_SetOutputReport(devHandle, buffer, length);
 			Loop();
 		} break;
-		default:
+		case API_L_ACPI:
 		{
+			byte fmask = 0;
 			for (int nc = 0; nc < numLights; nc++)
-				val = SetColor(lights[nc], r, g, b);
-		}
+				fmask |= 1 << lights[nc];
+			val = SetAcpiColor(fmask, r, g, b);
+		} break;
+		//default:
+		//{
+		//	for (int nc = 0; nc < numLights; nc++)
+		//		val = SetColor(lights[nc], r, g, b);
+		//}
 		}
 		return val;
 	}
@@ -916,14 +933,15 @@ namespace AlienFX_SDK {
 			return res;
 		} break;
 		case API_L_ACPI:
-			// it should be SetMode here, but i have no testing yet.
-			for (int i = 0; i < mappings->size(); i++) {
-				mapping cur = mappings->at(i);
-				if (cur.devid == pid) {
-					if (cur.lightid || power)
-						SetColor(cur.lightid, 0, 0, 0);
+			if (!brightness)
+				// it should be SetMode here, but i have no testing yet.
+				for (int i = 0; i < mappings->size(); i++) {
+					mapping cur = mappings->at(i);
+					if (cur.devid == pid) {
+						if (cur.lightid || power)
+							SetColor(cur.lightid, 0, 0, 0);
+					}
 				}
-			}
 			break;
 		}
 		return false;
