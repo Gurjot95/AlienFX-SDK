@@ -87,6 +87,14 @@ namespace AlienFX_SDK {
 		const byte setEffect[9] = {0xcc,0x80,0x02,0x07,0x00,0x00,0x01,0x01,0x01};// , 0x00, 0x00, 0xff, 0xff, 0x00, 0xff, 0xff, 0x05
 	} COMMV5;
 
+	struct COMMV6 {
+		const byte colorSet[8] = {0x92,0x37,0x0a,0x00,0x51,0x87,0xd0,0x04};
+		//[8] - light mask
+		//[9,10,11] - RGB
+		//[12] - Brightness (0..64)
+		//[13] - ???
+	} COMMV6;
+
 	void Functions::SetMaskAndColor(int index, byte *buffer, byte r1, byte g1, byte b1, byte r2, byte g2, byte b2) {
 		unsigned mask = 1 << index;
 		buffer[2] = (byte) chain;
@@ -267,6 +275,8 @@ namespace AlienFX_SDK {
 			chain++;
 		} break;
 		}
+		// DEBUG!
+		//DeviceIoControl(devHandle, IOCTL_HID_SET_OUTPUT_REPORT, buffer, length, NULL, 0, NULL, NULL);
 	}
 
 	bool Functions::Reset() {
