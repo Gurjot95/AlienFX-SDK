@@ -93,7 +93,7 @@ namespace AlienFX_SDK {
 		buffer[3] = (mask & 0xFF0000) >> 16;
 		buffer[4] = (mask & 0x00FF00) >> 8;
 		buffer[5] = (mask & 0x0000FF);
-		switch (length) {
+		switch (version) {
 		case API_L_V1:
 			buffer[6] = r1;
 			buffer[7] = g1;
@@ -188,10 +188,27 @@ namespace AlienFX_SDK {
 //#endif
 								// Yes, now so easy...
 								switch (caps.OutputReportByteLength) {
-								case 0: length = caps.FeatureReportByteLength;
+								// ToDo: add monitor detection here!
+								case 0: 
+									length = caps.FeatureReportByteLength;
+									version = 5;
 									break;
-									// attributes->version between v1 and v2!
-								default: length = caps.OutputReportByteLength;
+								case 8: length = caps.OutputReportByteLength;
+									version = 1;
+									break;
+								case 9: 
+									length = caps.OutputReportByteLength;
+									version = 2;
+									break;
+								case 12:
+									length = caps.OutputReportByteLength;
+									version = 3;
+									break;
+								case 34:
+									length = caps.OutputReportByteLength;
+									version = 4;
+									break;
+								//default: length = caps.OutputReportByteLength;
 								}
 
 								this->vid = attributes->VendorID;
@@ -205,11 +222,10 @@ namespace AlienFX_SDK {
 								cout << "Attributes - length: " << attributes->Size << ", version: " << attributes->VersionNumber << endl;
 								wprintf(L"Path: %s\n%s", devicePath.c_str(), buff);
 #endif
-							} else
-								CloseHandle(devHandle);
-						} else
-							CloseHandle(devHandle);
-					} else
+							}
+						}
+					}
+					if (!flag)
 						CloseHandle(devHandle);
 				}
 			}
@@ -222,6 +238,7 @@ namespace AlienFX_SDK {
 		if (acc && acc != INVALID_HANDLE_VALUE) {
 			devHandle = acc;
 			vid = pid = length = API_L_ACPI;
+			version = 0;
 			if (Reset()) {
 				return pid;
 			}
@@ -232,17 +249,17 @@ namespace AlienFX_SDK {
 	void Functions::Loop() {
 		byte buffer[MAX_BUFFERSIZE];
 		ZeroMemory(buffer, length);
-		switch (length) {
+		switch (version) {
 		case API_L_V5:
 			memcpy(buffer, COMMV5.loop, sizeof(COMMV5.loop));
 			HidD_SetFeature(devHandle, buffer, length);
 			break;
-			//case API_L_V4: {
-			//	 //m15 require Input report as a confirmation, not output.
-			//	 //WARNING!!! In latest firmware, this can provide up to 10sec(!) slowdown, so i disable status read. It works without it as well.
-			//	HidD_SetOutputReport(devHandle, buffer, length);
-			//	 //std::cout << "Status: 0x" << std::hex << (int) BufferN[2] << std::endl;
-			//} break;
+		//case API_L_V4: {
+		//	 //m15 require Input report as a confirmation, not output.
+		//	 //WARNING!!! In latest firmware, this can provide up to 10sec(!) slowdown, so i disable status read. It works without it as well.
+		//	HidD_SetOutputReport(devHandle, buffer, length);
+		//	 //std::cout << "Status: 0x" << std::hex << (int) BufferN[2] << std::endl;
+		//} break;
 		case API_L_V3: case API_L_V2: case API_L_V1:
 		{
 			memcpy(buffer, COMMV1.loop, sizeof(COMMV1.loop));
@@ -257,7 +274,7 @@ namespace AlienFX_SDK {
 
 		byte buffer[MAX_BUFFERSIZE] = {0};
 
-		switch (length) {
+		switch (version) {
 		case API_L_V5:
 		{
 			memcpy(buffer, COMMV5.reset, sizeof(COMMV5.reset));
@@ -295,7 +312,7 @@ namespace AlienFX_SDK {
 		bool res = false;
 
 		byte buffer[MAX_BUFFERSIZE] = {0};
-		switch (length) {
+		switch (version) {
 		case API_L_V5:
 		{
 			memcpy(buffer, COMMV5.update, sizeof(COMMV5.update));
@@ -343,7 +360,7 @@ namespace AlienFX_SDK {
 			Reset();
 		//byte* buffer = new byte[length];
 		byte buffer[MAX_BUFFERSIZE] = {0};
-		switch (length) {
+		switch (version) {
 		case API_L_V5:
 		{
 			ZeroMemory(buffer, length);
@@ -397,7 +414,7 @@ namespace AlienFX_SDK {
 		bool val = false;
 		if (!inSet) Reset();
 		byte buffer[MAX_BUFFERSIZE] = {0};
-		switch (length) {
+		switch (version) {
 		case API_L_V5:
 		{
 			memcpy(buffer, COMMV5.colorSet, sizeof(COMMV5.colorSet));
@@ -471,7 +488,7 @@ namespace AlienFX_SDK {
 	bool Functions::SetMultiColor(int size, UCHAR *lights, std::vector<vector<afx_act>> act, bool save) {
 		byte buffer[MAX_BUFFERSIZE] = {0};
 		bool val = true;
-		switch (length) {
+		switch (version) {
 		case API_L_V5:
 		{
 			if (!inSet) Reset();
@@ -552,7 +569,7 @@ namespace AlienFX_SDK {
 		byte buffer[MAX_BUFFERSIZE] = {0};
 		if (act.size() > 0) {
 			if (!inSet) Reset();
-			switch (length) {
+			switch (version) {
 			case API_L_V4:
 			{
 				// Buffer[3], [11] - action type ( 0 - light, 1 - pulse, 2 - morph)
@@ -649,7 +666,7 @@ namespace AlienFX_SDK {
 		//size_t BytesWritten;
 
 		byte buffer[MAX_BUFFERSIZE] = {0};
-		switch (length) {
+		switch (version) {
 		case API_L_V4:
 		{
 			if (!IsDeviceReady()) {
@@ -880,7 +897,7 @@ namespace AlienFX_SDK {
 
 	bool Functions::ToggleState(BYTE brightness, vector<mapping*> *mappings, bool power) {
 		byte buffer[MAX_BUFFERSIZE] = {0};
-		switch (length) {
+		switch (version) {
 		case API_L_V5:
 		{
 			if (inSet) { 
@@ -949,7 +966,7 @@ namespace AlienFX_SDK {
 
 	bool Functions::SetGlobalEffects(byte effType, int tempo, afx_act act1, afx_act act2) {
 		byte buffer[MAX_BUFFERSIZE] = {0};
-		switch (length) {
+		switch (version) {
 		case API_L_V5:
 		{
 			if (!inSet) Reset();
@@ -992,7 +1009,7 @@ namespace AlienFX_SDK {
 	BYTE Functions::AlienfxGetDeviceStatus() {
 		byte ret = 0;
 		byte buffer[MAX_BUFFERSIZE] = {0};
-		switch (length) {
+		switch (version) {
 		case API_L_V5:
 		{
 			memcpy(buffer, COMMV5.status, sizeof(COMMV5.status));
@@ -1049,7 +1066,7 @@ namespace AlienFX_SDK {
 
 	BYTE Functions::IsDeviceReady() {
 		int status;
-		switch (length) {
+		switch (version) {
 		case API_L_V5:
 			status = AlienfxGetDeviceStatus();
 			return status == ALIENFX_V5_STARTCOMMAND || status == ALIENFX_V5_INCOMMAND;
@@ -1461,14 +1478,15 @@ namespace AlienFX_SDK {
 	}
 
 	int Functions::GetVersion() {
-		switch (length) {
-		case API_L_V5: return 5; break;
-		case API_L_V4: return 4; break;
-		case API_L_V3: return 3; break;
-		case API_L_V2: return 2; break;
-		case API_L_V1: return 1; break;
-		default: return 0;
-		}
+		return version;
+		//switch (length) {
+		//case API_L_V5: return 5; break;
+		//case API_L_V4: return 4; break;
+		//case API_L_V3: return 3; break;
+		//case API_L_V2: return 2; break;
+		//case API_L_V1: return 1; break;
+		//default: return 0;
+		//}
 		return length;
 	}
 }
