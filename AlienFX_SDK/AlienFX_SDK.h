@@ -28,6 +28,7 @@ namespace AlienFX_SDK
 
 	// Length by API version:
     #define API_L_ACPI 0 //128
+    #define API_L_V6 6 //64
 	#define API_L_V5 5 //64
 	#define API_L_V4 4 //34
 	#define API_L_V3 3 //12
@@ -94,13 +95,13 @@ namespace AlienFX_SDK
 
 		HANDLE devHandle = NULL;
 		bool inSet = false;
-		//ULONGLONG lastPowerCall = 0;
 
 		int vid = -1;
 		int pid = -1;
 		int length = -1;
 		int chain = 1;
 		int version = -1;
+		byte bright = 64; // for APIv6
 
 		// support function for mask-based devices (v1-v3)
 		void SetMaskAndColor(int index, byte* buffer, byte r1, byte g1, byte b1, byte r2 = 0, byte g2 = 0, byte b2 = 0);

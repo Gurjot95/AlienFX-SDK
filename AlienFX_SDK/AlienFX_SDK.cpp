@@ -88,7 +88,7 @@ namespace AlienFX_SDK {
 	} COMMV5;
 
 	struct COMMV6 {
-		const byte colorSet[8] = {0x92,0x37,0x0a,0x00,0x51,0x87,0xd0,0x04};
+		const byte colorSet[13] = {0x92,0x37,0x0a,0x00,0x51,0x87,0xd0,0x04,0x0,0x0,0x0,0x0,0x64};
 		//[8] - light mask
 		//[9,10,11] - RGB
 		//[12] - Brightness (0..64)
@@ -196,7 +196,6 @@ namespace AlienFX_SDK {
 //#endif
 								// Yes, now so easy...
 								switch (caps.OutputReportByteLength) {
-								// ToDo: add monitor detection here!
 								case 0: 
 									length = caps.FeatureReportByteLength;
 									version = 5;
@@ -215,6 +214,10 @@ namespace AlienFX_SDK {
 								case 34:
 									length = caps.OutputReportByteLength;
 									version = 4;
+									break;
+								case 64: // TEMPORARY - Monitors
+									length = caps.OutputReportByteLength;
+									version = 6;
 									break;
 								//default: length = caps.OutputReportByteLength;
 								}
@@ -312,7 +315,7 @@ namespace AlienFX_SDK {
 			}
 #endif
 		} break;
-		default: return false;
+		//default: return false;
 		}
 		inSet = true;
 		return result;
@@ -349,7 +352,7 @@ namespace AlienFX_SDK {
 			}
 #endif
 		} break;
-		default: return false;
+		default: res=false;
 		}
 		//std::cout << "Update!" << std::endl;
 		inSet = false;
@@ -371,6 +374,16 @@ namespace AlienFX_SDK {
 		//byte* buffer = new byte[length];
 		byte buffer[MAX_BUFFERSIZE] = {0};
 		switch (version) {
+		case API_L_V6:
+		{
+			FillMemory(buffer, MAX_BUFFERSIZE, 0xff);
+			memcpy(buffer, COMMV6.colorSet, sizeof(COMMV6.colorSet));
+			buffer[8] = 1 << index;
+			buffer[9] = r;
+			buffer[10] = g;
+			buffer[11] = b;
+			buffer[12] = bright;
+		} break;
 		case API_L_V5:
 		{
 			ZeroMemory(buffer, length);
@@ -425,6 +438,18 @@ namespace AlienFX_SDK {
 		if (!inSet) Reset();
 		byte buffer[MAX_BUFFERSIZE] = {0};
 		switch (version) {
+		case API_L_V6:
+		{
+			FillMemory(buffer, MAX_BUFFERSIZE, 0xff);
+			memcpy(buffer, COMMV6.colorSet, sizeof(COMMV6.colorSet));
+			for (int nc = 0; nc < numLights; nc++)
+				buffer[8] |= 1 << lights[nc];
+			buffer[9] = r;
+			buffer[10] = g;
+			buffer[11] = b;
+			buffer[12] = bright;
+			val = HidD_SetOutputReport(devHandle, buffer, length);
+		} break;
 		case API_L_V5:
 		{
 			memcpy(buffer, COMMV5.colorSet, sizeof(COMMV5.colorSet));
@@ -559,11 +584,11 @@ namespace AlienFX_SDK {
 
 			}
 			for (int nc = 0; nc < size; nc++) {
-				HidD_SetOutputReport(devHandle, buffer, length);
+				//HidD_SetOutputReport(devHandle, buffer, length);
 				val = SetAction(lights[nc], act[nc]);
 			}
 		} break;
-		case API_L_ACPI:
+		default: //case API_L_ACPI:
 		{
 			for (int nc = 0; nc < size; nc++) {
 				val = SetColor(lights[nc], act[nc][0].r, act[nc][0].g, act[nc][0].b);
@@ -908,6 +933,18 @@ namespace AlienFX_SDK {
 	bool Functions::ToggleState(BYTE brightness, vector<mapping*> *mappings, bool power) {
 		byte buffer[MAX_BUFFERSIZE] = {0};
 		switch (version) {
+		case API_L_V6:
+			// Brigtness is global, so set it and update
+			bright = ((UINT) brightness * 0x64) / 0xff;
+			if (!brightness)
+				for (int i = 0; i < mappings->size(); i++) {
+					mapping* cur = mappings->at(i);
+					if (cur->devid == pid) {
+						if (!cur->flags || power)
+							SetColor(cur->lightid, 0, 0, 0);
+					}
+				}
+			break;
 		case API_L_V5:
 		{
 			if (inSet) { 
@@ -961,11 +998,11 @@ namespace AlienFX_SDK {
 		} break;
 		case API_L_ACPI:
 			if (!brightness)
-				// it should be SetMode here, but i have no testing yet.
+				// it should be SetMode here, but it only have 10 grades, so do software.
 				for (int i = 0; i < mappings->size(); i++) {
 					mapping* cur = mappings->at(i);
 					if (cur->devid == pid) {
-						if (cur->lightid || power)
+						if (!cur->flags || power)
 							SetColor(cur->lightid, 0, 0, 0);
 					}
 				}
