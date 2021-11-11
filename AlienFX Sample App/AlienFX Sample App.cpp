@@ -1,7 +1,7 @@
 // AlienFX Sample App.cpp : Defines the entry point for the console application.
 
 #include "stdafx.h"
-#include "../AlienFX_SDK/AlienFX_SDK.h"
+#include "AlienFX_SDK.h"
 #include <iostream>
 
 using namespace std;
@@ -13,17 +13,9 @@ int main()
 	vector<pair<DWORD,DWORD>> devs = afx_map.AlienFXEnumDevices();
 	cout << devs.size() << " device(s) detected." << endl;
 	//for (int i = 0; i < devs.size(); i++) {
-		int isInit = afx_dev.AlienFXInitialize(devs[0].first, devs[0].second);
-		std::cout << hex << "VID: 0x" << devs[0].first << ", PID: 0x" << isInit << ", API v" << afx_dev.GetVersion() << std::endl;
+		int isInit = afx_dev.AlienFXInitialize(0x0461, 0x4EC0);
+		cout << hex << "VID: 0x" << 0x0461 << ", PID: 0x" << isInit << ", API v" << afx_dev.GetVersion() << endl;
 		if (isInit != -1) {
-			//bool ready = AlienFX_SDK::Functions::IsDeviceReady();
-			//std::cout << "Ready: " << ready << std::endl;
-
-			//bool result = AlienFX_SDK::Functions::Reset(false);
-			//if (!result) {
-			//	std::cout << "Reset faled with " << std::hex << GetLastError() << std::endl;
-			//	return 1;
-			//}
 			cout << "API v" << afx_dev.GetVersion() << endl;
 			//int ret = afx_dev.AlienfxGetDeviceStatus();
 			//cout << hex << "Status result " << ret << endl;
