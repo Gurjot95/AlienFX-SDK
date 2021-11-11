@@ -14,20 +14,21 @@ namespace AlienFX_SDK {
 	#define ALIENFX_V2_READY 0x10
 	#define ALIENFX_V2_BUSY 0x11
 	#define ALIENFX_V2_UNKNOWN 0x12
-	// new statuses for apiv4 - 33 = ok, 36 = wait for update, 35 = wait for color, 34 - busy processing power update
+	// new statuses for apiv4
 	#define ALIENFX_V4_READY 33
 	#define ALIENFX_V4_BUSY 34
 	#define ALIENFX_V4_WAITCOLOR 35
 	#define ALIENFX_V4_WAITUPDATE 36
     #define ALIENFX_V4_WASON 38
-	// apiv5
+	// new statuses for apiv5
     #define ALIENFX_V5_STARTCOMMAND 0x8c
     #define ALIENFX_V5_WAITUPDATE 0x80
     #define ALIENFX_V5_INCOMMAND 0xcc
 
 	// Length by API version:
     #define API_L_ACPI 0 //128
-    #define API_L_V6 6 //64
+    #define API_L_V7 7 //65
+    #define API_L_V6 6 //65
 	#define API_L_V5 5 //64
 	#define API_L_V4 4 //34
 	#define API_L_V3 3 //12
@@ -37,9 +38,6 @@ namespace AlienFX_SDK {
 	// Mapping flags:
     #define ALIENFX_FLAG_POWER 1
     #define ALIENFX_FLAG_INACTIVE 2
-
-	// delay for power button update
-    #define POWER_DELAY 450
 
 	// Maximal buffer size across all device types
     #define MAX_BUFFERSIZE 65

@@ -10,7 +10,7 @@ extern "C" {
 #include <hidclass.h>
 #include <hidsdi.h>
 }
-//#include "AlienFX_SDK.h"
+#include "../AlienFX_SDK/alienfx-controls.h"
 
 #pragma comment(lib, "setupapi.lib")
 #pragma comment(lib, "hid.lib")
@@ -22,8 +22,6 @@ int main()
 	GUID guid;
 	bool flag = false;
 	HANDLE tdevHandle;
-	//This is VID for all alienware laptops, use this while initializing, it might be different for external AW device like mouse/kb
-	const static DWORD vids[3] = {0x187c, 0x0d62, 0x0424};
 
 	HidD_GetHidGuid(&guid);
 	HDEVINFO hDevInfo = SetupDiGetClassDevsA(&guid, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
@@ -67,8 +65,8 @@ int main()
 				attributes->Size = sizeof(HIDD_ATTRIBUTES);
 				if (HidD_GetAttributes(tdevHandle, attributes.get()))
 				{
-					for (unsigned i = 0; i < sizeof(vids)/sizeof(DWORD); i++) {
-						if (attributes->VendorID == vids[i]) {
+					for (unsigned i = 0; i < NUM_VIDS; i++) {
+						if (attributes->VendorID == AlienFX_SDK::vids[i]) {
 
 							PHIDP_PREPARSED_DATA prep_caps;
 							HIDP_CAPS caps;
@@ -81,12 +79,12 @@ int main()
 
 							cout << dec << "Version " << attributes->VersionNumber << ", Blocksize " << attributes->Size << endl;
 
-							cout << dec << "Output Report Length " << caps.OutputReportByteLength
-								<< ", Input Report Length " << caps.InputReportByteLength
-								<< ", Feature Report Length " << caps.FeatureReportByteLength
+							cout << dec << "Report Lengths: Output " << caps.OutputReportByteLength
+								<< ", Input " << caps.InputReportByteLength
+								<< ", Feature " << caps.FeatureReportByteLength
 								<< endl;
-							cout << hex << "Usage ID " << caps.Usage << ", Usage Page " << caps.UsagePage << endl;
-							cout << dec << "Output caps " << caps.NumberOutputButtonCaps << ", Index " << caps.NumberOutputDataIndices << endl;
+							cout << hex << "Usage ID " << caps.Usage << ", Usage Page " << caps.UsagePage;
+							cout << dec << ", Output caps " << caps.NumberOutputButtonCaps << ", Index " << caps.NumberOutputDataIndices << endl;
 
 							//if (caps.OutputReportByteLength || caps.Usage == 0xcc) {
 								cout << "+++++ Detected as: ";
@@ -95,6 +93,7 @@ int main()
 								case 0: cout << "Alienware, "; break;
 								case 1: cout << "DARFON, "; break;
 								case 2: cout << "Microship, "; break;
+								case 3: cout << "Primax, "; break;
 								}
 
 								switch (caps.OutputReportByteLength) {
@@ -118,7 +117,14 @@ int main()
 									cout << "APIv4";
 									break;
 								case 65:
-									cout << "APIv6";
+									switch (i) {
+									case 2:
+										cout << "APIv6";
+										break;
+									case 3:
+										cout << "APIv7";
+										break;
+									}
 									break;
 								default: cout << "Unknown";
 								}

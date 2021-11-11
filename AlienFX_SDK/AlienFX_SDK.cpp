@@ -107,29 +107,33 @@ namespace AlienFX_SDK {
 							if (caps.OutputReportByteLength || caps.Usage == 0xcc) {
 
 								// Yes, now so easy...
+								length = caps.OutputReportByteLength;
 								switch (caps.OutputReportByteLength) {
 								case 0: 
 									length = caps.FeatureReportByteLength;
 									version = 5;
 									break;
-								case 8: length = caps.OutputReportByteLength;
+								case 8: 
 									version = 1;
 									break;
 								case 9: 
-									length = caps.OutputReportByteLength;
 									version = 2;
 									break;
 								case 12:
-									length = caps.OutputReportByteLength;
 									version = 3;
 									break;
 								case 34:
-									length = caps.OutputReportByteLength;
 									version = 4;
 									break;
-								case 65: // TEMPORARY - Monitors
-									length = caps.OutputReportByteLength;
-									version = 6;
+								case 65:
+									switch (attributes->VendorID) {
+									case 0x0424:
+										version = 6;
+										break;
+									case 0x0461:
+										version = 7;
+										break;
+									}
 									break;
 								//default: length = caps.OutputReportByteLength;
 								}
@@ -137,14 +141,14 @@ namespace AlienFX_SDK {
 								this->vid = attributes->VendorID;
 								pid = attributes->ProductID;
 								flag = true;
-#ifdef _DEBUG
-								wchar_t buff[2048];
-								swprintf_s(buff, 2047, L"Init: VID: %#x, PID: %#x, Version: %d, Length: %d\n",
-										   attributes->VendorID, attributes->ProductID, attributes->VersionNumber, length);
-								OutputDebugString(buff);
-								cout << "Attributes - length: " << attributes->Size << ", version: " << attributes->VersionNumber << endl;
-								wprintf(L"Path: %s\n%s", devicePath.c_str(), buff);
-#endif
+//#ifdef _DEBUG
+//								wchar_t buff[2048];
+//								swprintf_s(buff, 2047, L"Init: VID: %#x, PID: %#x, Version: %d, Length: %d\n",
+//										   attributes->VendorID, attributes->ProductID, attributes->VersionNumber, length);
+//								OutputDebugString(buff);
+//								cout << "Attributes - length: " << attributes->Size << ", version: " << attributes->VersionNumber << endl;
+//								wprintf(L"Path: %s\n%s", devicePath.c_str(), buff);
+//#endif
 							}
 						}
 					}
@@ -173,6 +177,11 @@ namespace AlienFX_SDK {
 		byte buffer[MAX_BUFFERSIZE];
 		ZeroMemory(buffer, length);
 		switch (version) {
+		case API_L_V7:
+			memcpy(buffer, COMMV7.update, sizeof(COMMV7.update));
+			buffer[8] = 1;
+			HidD_SetOutputReport(devHandle, buffer, length);
+			break;
 		case API_L_V5:
 			memcpy(buffer, COMMV5.loop, sizeof(COMMV5.loop));
 			HidD_SetFeature(devHandle, buffer, length);
@@ -200,6 +209,14 @@ namespace AlienFX_SDK {
 		byte buffer[MAX_BUFFERSIZE] = {0};
 
 		switch (version) {
+		case API_L_V7:
+		{
+			memcpy(buffer, COMMV7.status, sizeof(COMMV7.status));
+			result = HidD_SetOutputReport(devHandle, buffer, length);
+			ZeroMemory(buffer, MAX_BUFFERSIZE);
+			memcpy(buffer, COMMV7.ack, sizeof(COMMV7.ack));
+			result = HidD_SetOutputReport(devHandle, buffer, length);
+		} break;
 		case API_L_V5:
 		{
 			memcpy(buffer, COMMV5.reset, sizeof(COMMV5.reset));
@@ -238,6 +255,18 @@ namespace AlienFX_SDK {
 
 		byte buffer[MAX_BUFFERSIZE] = {0};
 		switch (version) {
+		case API_L_V7:
+		{
+			memcpy(buffer, COMMV7.status, sizeof(COMMV7.status));
+			HidD_SetOutputReport(devHandle, buffer, length);
+			memcpy(buffer, COMMV7.control, sizeof(COMMV7.control));
+			buffer[5] = bright;
+			HidD_SetOutputReport(devHandle, buffer, length);
+			ZeroMemory(buffer, length);
+			memcpy(buffer, COMMV7.update, sizeof(COMMV7.update));
+			buffer[7] = 1;
+			res = HidD_SetOutputReport(devHandle, buffer, length);
+		} break;
 		case API_L_V5:
 		{
 			memcpy(buffer, COMMV5.update, sizeof(COMMV5.update));
@@ -280,6 +309,14 @@ namespace AlienFX_SDK {
 			Reset();
 		byte buffer[MAX_BUFFERSIZE] = {0};
 		switch (version) {
+		case API_L_V7:
+		{
+			memcpy(buffer, COMMV7.colorSet, sizeof(COMMV7.colorSet));
+			buffer[4] = index;
+			buffer[5] = r;
+			buffer[6] = g;
+			buffer[7] = b;
+		} break;
 		case API_L_V6:
 		{
 			FillMemory(buffer, MAX_BUFFERSIZE, 0xff);
@@ -292,7 +329,6 @@ namespace AlienFX_SDK {
 		} break;
 		case API_L_V5:
 		{
-			ZeroMemory(buffer, length);
 			memcpy(buffer, COMMV5.colorSet, sizeof(COMMV5.colorSet));
 			buffer[4] = index + 1;
 			buffer[5] = r;
@@ -318,15 +354,6 @@ namespace AlienFX_SDK {
 			memcpy(buffer, COMMV1.color, sizeof(COMMV1.color));
 			SetMaskAndColor(index, buffer, r, g, b);
 		} break;
-		//case API_L_V1:
-		//{
-		//	memcpy(buffer, COMMV1.color, sizeof(COMMV1.color));
-		//	SetMaskAndColor(index, buffer, r, g, b);
-
-		//	if (index == 5) {
-		//		buffer[1] = 0x83;
-		//	}
-		//} break;
 		case API_L_ACPI:
 		{
 			unsigned mask = 1 << index;
@@ -415,11 +442,11 @@ namespace AlienFX_SDK {
 				fmask |= 1 << lights[nc];
 			val = SetAcpiColor(fmask, r, g, b);
 		} break;
-		//default:
-		//{
-		//	for (int nc = 0; nc < numLights; nc++)
-		//		val = SetColor(lights[nc], r, g, b);
-		//}
+		default:
+		{
+			for (int nc = 0; nc < numLights; nc++)
+				val = SetColor(lights[nc], r, g, b);
+		}
 		}
 		return val;
 	}
@@ -846,10 +873,16 @@ namespace AlienFX_SDK {
 
 	bool Functions::ToggleState(BYTE brightness, vector<mapping*> *mappings, bool power) {
 		byte buffer[MAX_BUFFERSIZE] = {0};
+		bright = ((UINT) brightness * 0x64) / 0xff;
 		switch (version) {
+		case API_L_V7:
+			memcpy(buffer, COMMV7.status, sizeof(COMMV7.status));
+			HidD_SetOutputReport(devHandle, buffer, length);
+			memcpy(buffer, COMMV7.control, sizeof(COMMV7.control));
+			buffer[5] = bright;
+			return HidD_SetOutputReport(devHandle, buffer, length);
+			break;
 		case API_L_V6:
-			// Brigtness is global, so set it and update
-			bright = ((UINT) brightness * 0x64) / 0xff;
 			if (!brightness)
 				for (int i = 0; i < mappings->size(); i++) {
 					mapping* cur = mappings->at(i);
