@@ -1,7 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include "AlienFX_SDK.h"
 #include "alienfx-controls.h"
-#include <iostream>
+#include <memory>
 extern "C" {
 #include <hidclass.h>
 #include <hidsdi.h>

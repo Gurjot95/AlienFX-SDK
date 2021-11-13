@@ -14,7 +14,7 @@ int main()
 	cout << devs.size() << " device(s) detected." << endl;
 	//for (int i = 0; i < devs.size(); i++) {
 		int isInit = afx_dev.AlienFXInitialize(0x0461, 0x4EC0);
-		cout << hex << "VID: 0x" << 0x0461 << ", PID: 0x" << isInit << ", API v" << afx_dev.GetVersion() << endl;
+		cout << hex << "VID: 0x" << afx_dev.GetVid() << ", PID: 0x" << afx_dev.GetPID() << ", API v" << afx_dev.GetVersion() << endl;
 		if (isInit != -1) {
 			cout << "API v" << afx_dev.GetVersion() << endl;
 			//int ret = afx_dev.AlienfxGetDeviceStatus();
@@ -22,11 +22,11 @@ int main()
 			//afx_dev.Reset();
 			//afx_dev.AlienfxGetDeviceStatus();
 			cout << "Let's try to set some colors..." << endl;
-			int res = afx_dev.SetColor(0, 0, 0, 255);
+			int res = afx_dev.SetColor(1, 0, 0, 255);
 			cout << "SetColor result: " << res << endl;
 			res = afx_dev.SetColor(2, 0, 255, 255);
 			cout << "SetColor 2 result: " << res << endl;
-			afx_dev.UpdateColors();
+			res = afx_dev.UpdateColors();
 			cin.get();
 			//afx_dev.AlienfxGetDeviceStatus();
 			//afx_dev.UpdateColors();

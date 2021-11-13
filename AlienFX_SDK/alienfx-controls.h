@@ -105,7 +105,7 @@ namespace AlienFX_SDK {
 		*/
 	} COMMV5;
 
-	struct COMMV6 {
+	static struct COMMV6 {
 		const byte colorSet[13] = {0x92,0x37,0x0a,0x00,0x51,0x87,0xd0,0x04,0x0,0x0,0x0,0x0,0x64};
 		//[8] - light mask
 		//[9,10,11] - RGB
@@ -117,7 +117,7 @@ namespace AlienFX_SDK {
 		// Morph - [12,13,14] - rgb2, [15-18] - 00,02,14,7b ???
 	} COMMV6;
 
-	struct COMMV7 {
+	static struct COMMV7 {
 		const byte ack[2] = {0xc0,0x02};
 		const byte colorSet[3] = {0x40,0x1a,0x07};
 		//[4] - light ID
