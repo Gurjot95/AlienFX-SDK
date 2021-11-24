@@ -10,24 +10,26 @@ int main()
 {
 	AlienFX_SDK::Functions afx_dev;
 	AlienFX_SDK::Mappings afx_map;
-	vector<pair<DWORD,DWORD>> devs = afx_map.AlienFXEnumDevices();
+	vector<pair<WORD,WORD>> devs = afx_map.AlienFXEnumDevices();
 	cout << devs.size() << " device(s) detected." << endl;
 	//for (int i = 0; i < devs.size(); i++) {
-		int isInit = afx_dev.AlienFXInitialize(0x0461, 0x4EC0);
-		cout << hex << "VID: 0x" << afx_dev.GetVid() << ", PID: 0x" << afx_dev.GetPID() << ", API v" << afx_dev.GetVersion() << endl;
-		if (isInit != -1) {
-			cout << "API v" << afx_dev.GetVersion() << endl;
+		if (afx_dev.AlienFXInitialize(0x0461, 0x4EC0) != -1) { // mouse
+		//if (afx_dev.AlienFXInitialize(0x0424, 0x2745) != -1) { // monitor
+			cout << hex << "VID: 0x" << afx_dev.GetVid() << ", PID: 0x" << afx_dev.GetPID() << ", API v" << afx_dev.GetVersion() << endl;
 			//int ret = afx_dev.AlienfxGetDeviceStatus();
 			//cout << hex << "Status result " << ret << endl;
 			//afx_dev.Reset();
 			//afx_dev.AlienfxGetDeviceStatus();
-			cout << "Let's try to set some colors..." << endl;
-			int res = afx_dev.SetColor(1, 0, 0, 255);
-			cout << "SetColor result: " << res << endl;
-			res = afx_dev.SetColor(2, 0, 255, 255);
-			cout << "SetColor 2 result: " << res << endl;
-			res = afx_dev.UpdateColors();
-			cin.get();
+			cout << "Let's try to set some effects..." << endl;
+			for (byte effmode = 1; effmode < 8; effmode++) {
+				cout << "Setting light 1 to mode " << (int) effmode << "...";
+				AlienFX_SDK::act_block act{1};
+				act.act.push_back({effmode,0,0,0,255,0});
+				act.act.push_back({effmode,0,0,0,0,255});
+				afx_dev.SetAction(&act);
+				cin.get();
+				cout << endl;
+			}
 			//afx_dev.AlienfxGetDeviceStatus();
 			//afx_dev.UpdateColors();
 			//afx_dev.AlienfxGetDeviceStatus();
