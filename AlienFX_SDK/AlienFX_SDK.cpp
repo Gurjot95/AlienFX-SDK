@@ -458,6 +458,14 @@ namespace AlienFX_SDK {
 		bool val = true;
 		if (!inSet) Reset();
 		switch (version) {
+		case API_L_V7:
+		{
+			if (save)
+				SetPowerAction(act);
+			else
+				for (vector<act_block>::iterator nc = act->begin(); nc != act->end(); nc++)
+						val = SetAction(&(*nc));
+		} break;
 		case API_L_V5:
 		{
 			int bPos = 4;
@@ -539,13 +547,6 @@ namespace AlienFX_SDK {
 				vector<pair<byte, byte>> mods;
 				for (int ca = 0; ca < act->act.size(); ca++) {
 					// 3 actions per record..
-					mods.insert(mods.end(), {
-						 {bPos,act->act[ca].type < AlienFX_A_Breathing ? act->act[ca].type : AlienFX_A_Morph },
-						 {bPos + 1, act->act[ca].time},
-						 //{bPos + 4, act->act[ca].tempo},
-						 {bPos + 5, act->act[ca].r},
-						 {bPos + 6, act->act[ca].g},
-						 {bPos + 7, act->act[ca].b}});
 					byte opCode1 = 0xd0, opCode2 = act->act[ca].tempo;
 					switch (act->act[ca].type) {
 					/*case AlienFX_A_Color: 
@@ -571,10 +572,17 @@ namespace AlienFX_SDK {
 						opCode1 = 0xe8;
 						break;
 					default: 
-						opCode1 = 0xd0;
+						//opCode1 = 0xd0;
 						opCode2 = 0xfa;
 					}
-					mods.insert(mods.end(), {{2,opCode1},{4,opCode2}});
+					mods.insert(mods.end(), {
+						{bPos,act->act[ca].type < AlienFX_A_Breathing ? act->act[ca].type : AlienFX_A_Morph },
+								{bPos + 1, act->act[ca].time},
+								{bPos + 2, opCode1},
+								{bPos + 4, opCode2},
+								{bPos + 5, act->act[ca].r},
+								{bPos + 6, act->act[ca].g},
+								{bPos + 7, act->act[ca].b}});
 					bPos += 8;
 					if (bPos + 8 >= length) {
 						res = PrepareAndSend(COMMV4.colorSet, sizeof(COMMV4.colorSet), mods);
@@ -644,6 +652,12 @@ namespace AlienFX_SDK {
 				break;
 			}
 		switch (version) {
+		case API_L_V7:
+		{
+			for (vector<act_block>::iterator nc = act->begin(); nc != act->end(); nc++)
+					SetAction(&(*nc));
+			PrepareAndSend(COMMV7.update, sizeof(COMMV7.update), {{8,1}});
+		} break;
 		case API_L_V4:
 		{
 			// Need to flush query...
