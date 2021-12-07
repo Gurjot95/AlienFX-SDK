@@ -42,33 +42,45 @@ namespace AlienFX_SDK {
 	// Maximal buffer size across all device types
     #define MAX_BUFFERSIZE 65
 
-	struct mapping {
+	union Colorcode // Atomic color structure
+	{
+		struct { 
+			byte b;
+			byte g;
+			byte r;
+			byte br;
+		};
+		DWORD ci;
+	};
+
+	struct mapping { // Light information block
 		WORD vid = 0;
-		WORD devid = 0;
-		WORD lightid = 0;
+		WORD devid;// = 0;
+		WORD lightid;// = 0;
 		WORD flags = 0;
 		string name;
 	};
 
-	struct devmap {
+	struct devmap { // Device information block
 		WORD vid = 0;
-		WORD devid = 0;
+		WORD devid;// = 0;
 		string name;
+		Colorcode white = {255,255,255};
 	};
 
-	struct group {
-		DWORD gid = 0;
+	struct group { // Light group information block
+		DWORD gid;// = 0;
 		string name;
 		vector<mapping*> lights;
 	};
 
 	struct afx_act { // atomic light action phase
-		BYTE type = 0; // one of Action values - action type
-		BYTE time = 0; // How long this phase stay
-		BYTE tempo = 0; // How fast it should transform
-		BYTE r = 0; // phase color
-		BYTE g = 0;
-		BYTE b = 0;
+		BYTE type; // one of Action values - action type
+		BYTE time; // How long this phase stay
+		BYTE tempo; // How fast it should transform
+		BYTE r; // phase color
+		BYTE g;
+		BYTE b;
 	};
 
 	struct act_block { // light action block
@@ -104,11 +116,10 @@ namespace AlienFX_SDK {
 		byte bright = 64; // Brightness for APIv6-v7
 
 		// support function for mask-based devices (v1-v3)
-		//void SetMaskAndColor(int index, byte* buffer, byte r1, byte g1, byte b1, byte r2 = 0, byte g2 = 0, byte b2 = 0);
-		vector<pair<byte, byte>> *SetMaskAndColor(DWORD index, byte type, byte r1, byte g1, byte b1, byte r2 = 0, byte g2 = 0, byte b2 = 0);
+		vector<pair<byte, byte>> *SetMaskAndColor(DWORD index, byte type, Colorcode c1, Colorcode c2 = {0});
 
 		// Support functions for ACPI calls (v0)
-		bool SetAcpiColor(byte mask, byte r, byte g, byte b);
+		bool SetAcpiColor(byte mask, Colorcode c);
 
 		// Support function to send data to USB device
 		bool PrepareAndSend(const byte *command, byte size, vector<pair<byte, byte>> mods);
@@ -144,12 +155,12 @@ namespace AlienFX_SDK {
 
 		BYTE IsDeviceReady();
 
-		bool SetColor(unsigned index, byte r, byte g, byte b, bool loop = true);
+		bool SetColor(unsigned index, Colorcode c, bool loop = true);
 
 		// Set multipy lights to the same color. This only works for new API devices, and emulated at old ones.
 		// numLights - how many lights need to be set
 		// lights - pointer to array of light IDs need to be set.
-		bool SetMultiLights(vector<byte> *lights, int r, int g, int b);
+		bool SetMultiLights(vector<byte> *lights, Colorcode c);
 
 		// Set multipy lights to different color.
 		// size - how many lights
