@@ -55,11 +55,10 @@ namespace AlienFX_SDK {
 	}
 
 	bool Functions::PrepareAndSend(const byte *command, byte size, vector<pair<byte, byte>> *mods) {
-		byte buffer[MAX_BUFFERSIZE]{0};
+		byte buffer[MAX_BUFFERSIZE];
 		DWORD written;
 
-		if (version == API_L_V6)
-			FillMemory(buffer, MAX_BUFFERSIZE, 0xff);
+		FillMemory(buffer, MAX_BUFFERSIZE, version == API_L_V6 ? 0xff : 0);
 
 		memcpy(&buffer[1], command, size);
 		buffer[0] = reportID;
@@ -122,7 +121,7 @@ namespace AlienFX_SDK {
 		return true;
 	}
 
-	//Use this method for general devices, pid = -1 for full scan
+	//Use this method for general devices, vid = 0 for any vid, pid = -1 for any pid. Do not use at the same time!
 	int Functions::AlienFXInitialize(int vid, int pidd) {
 		GUID guid;
 		bool flag = false;
@@ -348,7 +347,7 @@ namespace AlienFX_SDK {
 		case API_L_V7:
 		{
 			PrepareAndSend(COMMV7.status, sizeof(COMMV7.status));
-			val = PrepareAndSend(COMMV7.control, sizeof(COMMV7.control), {{6,bright},{7,index},{8,c.r},{9,c.g},{10,c.b}});
+			val = PrepareAndSend(COMMV7.control, sizeof(COMMV7.control), {{6,bright},{7,(byte)index},{8,c.r},{9,c.g},{10,c.b}});
 			//val = PrepareAndSend(COMMV7.colorSet, sizeof(COMMV7.colorSet), {{5,(byte)(index+1)},{6,r},{7,g},{8,b}});
 		} break;
 		case API_L_V6:
@@ -653,7 +652,7 @@ namespace AlienFX_SDK {
 		{
 			for (vector<act_block>::iterator nc = act->begin(); nc != act->end(); nc++)
 					SetAction(&(*nc));
-			PrepareAndSend(COMMV7.update, sizeof(COMMV7.update), {{8,1}});
+			PrepareAndSend(COMMV7.update, sizeof(COMMV7.update));
 		} break;
 		case API_L_V4:
 		{

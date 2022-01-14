@@ -4,7 +4,7 @@
 
 namespace AlienFX_SDK {
 
-	//This is VIDs for different devices: Alienware (common), Darfon (RGB rekboards), Microship (monitors), Primax (mouses)
+	//This is VIDs for different devices: Alienware (common), Darfon (RGB keyboards), Microship (monitors), Primax (mouses)
 	const static WORD vids[NUM_VIDS]{0x187c, 0x0d62, 0x0424, 0x0461};
 
 	static struct COMMV1 {
@@ -103,7 +103,7 @@ namespace AlienFX_SDK {
 		//const byte ack[2]{0xc0,0x02};
 		//const byte colorSet[3]{0x40,0x1a,0x07};
 		//[5] - light ID, [6,7,8] - RGB
-		const byte update[6]{0x40,0x60,0x07,0x00,0xc0,0x4e};
+		const byte update[8]{0x40,0x60,0x07,0x00,0xc0,0x4e,0x00,0x01};
 		//[8] = 1 - update finish, [9] = 1 - update color (after set)
 		const byte status[5]{0x40,0x03,0x01,0x00,0x01};
 		const byte control[5]{0x40,0x10,0x0c,0x00,0x01};// , 0x64, 0x00, 0x2a, 0xaa, 0xff};
