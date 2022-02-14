@@ -19,16 +19,12 @@ int main()
 	    if (afx_dev.AlienFXInitialize(0x04f2) != -1) { // keyboard
 			cout << hex << "VID: 0x" << afx_dev.GetVid() << ", PID: 0x" << afx_dev.GetPID() << ", API v" << afx_dev.GetVersion() << endl;
 			cout << "Now try light 2 to blue... ";
-			res = afx_dev.SetColor(2, {255});
-			cout << "Result " << res << ", ";
-			res = afx_dev.UpdateColors();
-			cout << "Update result " << res << endl;
+			afx_dev.SetColor(2, {255});
+			afx_dev.UpdateColors();
 			cin.get();
 			cout << "Now try light 3 to mixed... ";
 			res = afx_dev.SetColor(3, {255, 255});
-			cout << "Result " << res << ", ";
 			res = afx_dev.UpdateColors();
-			cout << "Update result " << res << endl;
 			cin.get();
 			/*cout << "Ok, now lights off...";
 			afx_dev.ToggleState(0, NULL, false);
