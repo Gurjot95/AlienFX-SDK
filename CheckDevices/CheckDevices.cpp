@@ -20,7 +20,7 @@ using namespace std;
 //const static WORD vids[NUM_VIDS]{0x187c, 0x0d62, 0x0424, 0x0461};
 
 void CheckDevices(bool show_all) {
-	
+
 	GUID guid;
 	bool flag = false;
 	HANDLE tdevHandle;
@@ -52,12 +52,12 @@ void CheckDevices(bool show_all) {
 		{
 			continue;
 		}
-		std::unique_ptr<SP_DEVICE_INTERFACE_DETAIL_DATA> deviceInterfaceDetailData((SP_DEVICE_INTERFACE_DETAIL_DATA*)new char[dwRequiredSize]);
-		deviceInterfaceDetailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
+		std::unique_ptr<SP_DEVICE_INTERFACE_DETAIL_DATA_W> deviceInterfaceDetailData((SP_DEVICE_INTERFACE_DETAIL_DATA_W*)new char[dwRequiredSize]);
+		deviceInterfaceDetailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_W);
 		if (SetupDiGetDeviceInterfaceDetailW(hDevInfo, &deviceInterfaceData, deviceInterfaceDetailData.get(), dwRequiredSize, NULL, NULL))
 		{
-			std::wstring devicePath = deviceInterfaceDetailData->DevicePath;
-			tdevHandle = CreateFile(devicePath.c_str(), GENERIC_WRITE | GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+			wstring devicePath = deviceInterfaceDetailData->DevicePath;
+			tdevHandle = CreateFileW(devicePath.c_str(), GENERIC_WRITE | GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
 
 			if (tdevHandle != INVALID_HANDLE_VALUE)
 			{
@@ -116,7 +116,7 @@ void CheckDevices(bool show_all) {
 							if (show_all || supported) {
 
 								printf("===== Device VID_%04x, PID_%04x =====\n", attributes->VendorID, attributes->ProductID);
-								printf("Version %d, blocksize %d\n", attributes->VersionNumber, attributes->Size);
+								printf("Version %d, block size %d\n", attributes->VersionNumber, attributes->Size);
 
 								printf("Report Lengths: Output %d, Input %d, Feature %d\n", caps.OutputReportByteLength,
 									caps.InputReportByteLength,
