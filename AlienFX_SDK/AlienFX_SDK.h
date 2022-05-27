@@ -72,7 +72,17 @@ namespace AlienFX_SDK {
 	struct group { // Light group information block
 		DWORD gid;// = 0;
 		string name;
-		vector<mapping*> lights;
+		vector<pair<DWORD,DWORD>> lights;
+		bool have_power = false;
+	};
+
+#define MAXGRIDSIZE 450
+
+	struct lightgrid {
+		byte id;
+		byte x, y;
+		string name;
+		DWORD *grid;
 	};
 
 	struct afx_act { // atomic light action phase
@@ -214,7 +224,7 @@ namespace AlienFX_SDK {
 	struct afx_device {
 		Functions *dev;
 		devmap *desc;
-		vector <mapping *> lights;
+		vector <mapping*> lights;
 	};
 
 	class Mappings {
@@ -222,6 +232,7 @@ namespace AlienFX_SDK {
 		vector <mapping*> mappings; // Lights data for all devices
 		vector <devmap> devices; // Device data found/present in system
 		vector <group> groups; // Defined light groups
+		vector <lightgrid> grids; // Grid zones info
 
 	public:
 
@@ -250,6 +261,9 @@ namespace AlienFX_SDK {
 		// get defined groups
 		vector <group>* GetGroups();
 
+		// get defined grids
+		vector <lightgrid>* GetGrids() { return &grids; };
+
 		// get device structure by PID (devID)/VID
 		devmap* GetDeviceById(WORD devID, WORD vid = 0);
 
@@ -262,11 +276,11 @@ namespace AlienFX_SDK {
 		// add new light name into the list field-by-field
 		void AddMapping(DWORD devID, WORD lightID, const char* name, WORD flags);
 
+		// remove light mapping by id
+		void RemoveMapping(DWORD devID, WORD lightID);
+
 		// get light flags (Power, indicator) by PID/VID and light ID
 		int GetFlags(DWORD devid, WORD lightid);
-
-		// set light flags (Power, indicator) by PID/VID and light ID
-		void SetFlagsById(DWORD devid, WORD lightid, WORD flags);
 	};
 
 }
