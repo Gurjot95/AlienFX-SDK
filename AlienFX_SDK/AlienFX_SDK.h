@@ -63,17 +63,10 @@ namespace AlienFX_SDK {
 		string name;
 	};
 
-	//struct devmap { // Device information block
-	//	WORD vid = 0;
-	//	WORD devid;// = 0;
-	//	string name;
-	//	Colorcode white = {255,255,255};
-	//};
-
 	struct group { // Light group information block
 		DWORD gid;// = 0;
 		string name;
-		vector<pair<DWORD,DWORD>> lights;
+		vector<DWORD> lights;
 		bool have_power = false;
 	};
 
@@ -238,7 +231,7 @@ namespace AlienFX_SDK {
 	public:
 
 		vector<afx_device> fxdevs;
-		bool haveLights = false;
+		int activeLights = 0;
 
 		~Mappings();
 
@@ -265,6 +258,9 @@ namespace AlienFX_SDK {
 
 		// get defined grids
 		vector <lightgrid>* GetGrids() { return &grids; };
+
+		// get grid object by it's ID
+		lightgrid* GetGridByID(byte id);
 
 		// get device structure by PID/VID (low/high WORD)
 		afx_device* GetDeviceById(DWORD devID);
