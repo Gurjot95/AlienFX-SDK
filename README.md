@@ -15,6 +15,12 @@ Please checkout Sample App for reference.
 - 12 bytes 8 bit/color, reportID 2 control (v3)
 - 34 bytes 8 bit/color, reportID 0 control (v4)
 - 64 bytes 8 bit/color, featureID 0xcc control (v5)
+- 65 bytes 8 bit/color, interrupt control (v6)
+- 65 bytes 8 bit/color, featureID control (v7)
+- 65 bytes 8 bit/color, Interrupt control (v8)
+- 65 bytes 8 bit/color, Interrupt control (v9)
+
+Read details about supported devices and modes [here](https://github.com/T-Troll/alienfx-tools/wiki/Supported-and-tested-devices-list)
 
 Some notebooks have 2 devices - APIv4 (for logo, power button, etc) and APIv5 for keyboard.
 
@@ -26,7 +32,7 @@ Some notebooks have 2 devices - APIv4 (for logo, power button, etc) and APIv5 fo
 - Change light hardware effect (except APIv5)
 - Change multiply lights hardware effects (except APIv5)
 - Hardware-backed global light off/on/dim (dim is software for APIv0-v3 and should be done by application)
-- Global hardware light effects (APIv5)
+- Global hardware light effects (APIv5, v8, v9)
 
 ### Initialization
 ```C++
