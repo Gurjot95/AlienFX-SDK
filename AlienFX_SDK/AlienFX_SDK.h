@@ -1,12 +1,12 @@
 #pragma once
-#include <wtypesbase.h>
+#include <wtypes.h>
 #include <vector>
 #include <string>
 #include "alienfx-controls.h"
 
 using namespace std;
 
-#define byte BYTE
+//#define byte BYTE
 
 namespace AlienFX_SDK {
 
@@ -28,8 +28,7 @@ namespace AlienFX_SDK {
 
 	// API version (was length):
     #define API_L_ACPI 0 //128
-	#define API_L_V9 9 //65
-    #define API_L_V8 8 //65
+	#define API_L_V8 8 //65
     #define API_L_V7 7 //65
     #define API_L_V6 6 //65
 	#define API_L_V5 5 //64
@@ -56,9 +55,11 @@ namespace AlienFX_SDK {
 		DWORD ci;
 	};
 
+	struct icommand {
+		byte i, val;
+	};
+
 	struct mapping { // Light information block
-		//WORD vid = 0;
-		//WORD devid;// = 0;
 		WORD lightid;// = 0;
 		WORD flags = 0;
 		string name;
@@ -117,24 +118,31 @@ namespace AlienFX_SDK {
 		byte chain = 1; // seq. number for APIv1-v3
 		byte version = -1; // interface version
 		byte reportID = 0; // HID ReportID (0 if auto)
-		byte bright = 64; // Brightness for APIv6-v7
+		byte bright = 64; // Brightness for APIv4 and v7
 
 		// support function for mask-based devices (v1-v3)
-		vector<pair<byte, byte>> *SetMaskAndColor(DWORD index, byte type, Colorcode c1, Colorcode c2 = {0});
+		vector<icommand> *SetMaskAndColor(DWORD index, byte type, Colorcode c1, Colorcode c2 = {0});
 
+#ifndef NOACPILIGHTS
 		// Support functions for ACPI calls (v0)
 		bool SetAcpiColor(byte mask, Colorcode c);
+#endif
 
 		// Support function to send data to USB device
-		bool PrepareAndSend(const byte *command, byte size, vector<pair<byte, byte>> mods);
-		bool PrepareAndSend(const byte *command, byte size, vector<pair<byte, byte>> *mods = NULL);
+		bool PrepareAndSend(const byte *command, byte size, vector<icommand> mods);
+		bool PrepareAndSend(const byte *command, byte size, vector<icommand> *mods = NULL);
 
 		// Support function to send whole power block for v1-v3
 		bool SavePowerBlock(byte blID, act_block act, bool needSave, bool needInverse = false);
 
+		//De-init
+		void AlienFXClose();
+
 	public:
 
 		bool powerMode = true; // current power mode for APIv1-v3
+
+		~Functions();
 
 		// Initialize device
 		// Returns PID of device used.
@@ -145,9 +153,6 @@ namespace AlienFX_SDK {
 		// Another init function, for Aurora ACPI init.
 		// acc is a handle to low-level ACPI driver (hwacc.sys) interface - see alienfan project.
 		int AlienFXInitialize(HANDLE acc);
-
-		//De-init
-		bool AlienFXClose();
 
 		// Switch to other AlienFX device
 		bool AlienFXChangeDevice(int vid, int pid, HANDLE acc = NULL);
@@ -188,7 +193,7 @@ namespace AlienFX_SDK {
 		// power - if true, power and indicator lights will be set too
 		bool ToggleState(BYTE brightness, vector <mapping>* mappings, bool power);
 
-		// Global (whole device) effect control for APIv5, v8, v9
+		// Global (whole device) effect control for APIv5, v8
 		// effType - effect type
 		// mode - effect mode (off, steady, keypress, etc)
 		// tempo - effect tempo
@@ -232,15 +237,13 @@ namespace AlienFX_SDK {
 
 	class Mappings {
 	private:
-		//vector <mapping*> mappings; // Lights data for all devices
-		//vector <devmap> devices; // Device data found/present in system
 		vector <group> groups; // Defined light groups
 		vector <lightgrid> grids; // Grid zones info
 
 	public:
 
-		vector<afx_device> fxdevs;
-		int activeLights = 0;
+		vector<afx_device> fxdevs; // main devices/mappings array
+		int activeLights = 0; // total active lights into the system
 
 		~Mappings();
 
