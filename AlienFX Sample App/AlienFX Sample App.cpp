@@ -1,8 +1,7 @@
+// This define disable ACPI-based lights (Aurora R6/R7). You will need to use AlienFan_SDK to control it.
 #define NOACPILIGHTS
 #include "AlienFX_SDK.h"
 #include <iostream>
-#include <stdio.h>
-#include <tchar.h>
 
 using namespace std;
 
@@ -11,7 +10,9 @@ int main()
 	AlienFX_SDK::Mappings afx_map;
 	// Loading stored devices and maps (optional, in case you need to know which lights every device has)
 	afx_map.LoadMappings();
-	// Now detect devices...
+	for (auto it = afx_map.fxdevs.begin(); it != afx_map.fxdevs.end(); it++)
+		cout << "Stored device " << it->name << ", " << it->lights.size() << " lights\n";
+	// Now detect active devices...
 	vector<AlienFX_SDK::Functions*> devs = afx_map.AlienFXEnumDevices();
 	cout << devs.size() << " device(s) detected." << endl;
 	// And try to set it lights...
