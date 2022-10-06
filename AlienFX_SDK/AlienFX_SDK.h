@@ -2,44 +2,47 @@
 #include <wtypes.h>
 #include <vector>
 #include <string>
-#include "alienfx-controls.h"
+//#include "alienfx-controls.h"
+
+#ifndef NOACPILIGHTS
+#include "alienfan-SDK.h"
+#endif
 
 using namespace std;
 
-//#define byte BYTE
-
 namespace AlienFX_SDK {
 
-	// Old alienware device statuses v1-v3
+	// Statuses for v1-v3
 	#define ALIENFX_V2_RESET 0x06
 	#define ALIENFX_V2_READY 0x10
 	#define ALIENFX_V2_BUSY 0x11
 	#define ALIENFX_V2_UNKNOWN 0x12
-	// new statuses for apiv4
+	// Statuses for apiv4
 	#define ALIENFX_V4_READY 33
 	#define ALIENFX_V4_BUSY 34
 	#define ALIENFX_V4_WAITCOLOR 35
 	#define ALIENFX_V4_WAITUPDATE 36
     #define ALIENFX_V4_WASON 38
-	// new statuses for apiv5
+	// Statuses for apiv5
     #define ALIENFX_V5_STARTCOMMAND 0x8c
     #define ALIENFX_V5_WAITUPDATE 0x80
     #define ALIENFX_V5_INCOMMAND 0xcc
 
-	// API version (was length):
-    #define API_L_ACPI 0 //128
-	#define API_L_V8 8 //65
-    #define API_L_V7 7 //65
-    #define API_L_V6 6 //65
-	#define API_L_V5 5 //64
-	#define API_L_V4 4 //34
-	#define API_L_V3 3 //12
-    #define API_L_V2 2 //9
-	#define API_L_V1 1 //8
+	// API version:
+    #define API_ACPI 0 //128
+	#define API_V8 8 //65
+    #define API_V7 7 //65
+    #define API_V6 6 //65
+	#define API_V5 5 //64
+	#define API_V4 4 //34
+	#define API_V3 3 //12
+    #define API_V2 2 //9
+	#define API_V1 1 //8
 
 	// Mapping flags:
-    #define ALIENFX_FLAG_POWER 1
-    #define ALIENFX_FLAG_INDICATOR 2
+    #define ALIENFX_FLAG_POWER		1
+    #define ALIENFX_FLAG_INDICATOR	2
+	#define ALIENFX_FLAG_LOCK		4
 
 	// Maximal buffer size across all device types
     #define MAX_BUFFERSIZE 65
@@ -60,13 +63,13 @@ namespace AlienFX_SDK {
 	};
 
 	struct mapping { // Light information block
-		WORD lightid;// = 0;
+		WORD lightid;
 		WORD flags = 0;
 		string name;
 	};
 
 	struct group { // Light group information block
-		DWORD gid;// = 0;
+		DWORD gid;
 		string name;
 		vector<DWORD> lights;
 		bool have_power = false;
@@ -110,52 +113,64 @@ namespace AlienFX_SDK {
 	private:
 
 		HANDLE devHandle = NULL;
+
+//#ifndef NOACPILIGHTS
+		void* device = NULL;
+		//AlienFan_SDK::Lights* device = NULL;
+//#endif
+
 		bool inSet = false;
 
-		int vid = -1; // Device VID, can be zero!
+		int vid = -1; // Device VID
 		int pid = -1; // Device PID, -1 if not initialized
 		int length = -1; // HID report length
 		byte chain = 1; // seq. number for APIv1-v3
-		byte version = -1; // interface version
-		byte reportID = 0; // HID ReportID (0 if auto)
-		byte bright = 64; // Brightness for APIv4 and v7
+		int version = -1; // interface version
+		byte reportID = 0; // HID ReportID (0 for auto)
+		byte bright = 64; // Brightness for APIv4 and v6
 
-		// support function for mask-based devices (v1-v3)
-		vector<icommand> *SetMaskAndColor(DWORD index, byte type, Colorcode c1, Colorcode c2 = {0});
-
-#ifndef NOACPILIGHTS
-		// Support functions for ACPI calls (v0)
-		bool SetAcpiColor(byte mask, Colorcode c);
-#endif
+		// support function for mask-based devices (v1-v3, v6)
+		vector<icommand>* SetMaskAndColor(DWORD index, byte type, Colorcode c1, Colorcode c2 = { 0 }, byte tempo = 0, byte length = 0);
 
 		// Support function to send data to USB device
-		bool PrepareAndSend(const byte *command, byte size, vector<icommand> mods);
 		bool PrepareAndSend(const byte *command, byte size, vector<icommand> *mods = NULL);
+		bool PrepareAndSend(const byte* command, byte size, vector<icommand> mods);
 
 		// Support function to send whole power block for v1-v3
 		bool SavePowerBlock(byte blID, act_block act, bool needSave, bool needInverse = false);
 
-		//De-init
-		void AlienFXClose();
+		// return current device state
+		BYTE AlienfxGetDeviceStatus();
+
+		// Next command delay for APIv1-v3
+		BYTE AlienfxWaitForReady();
+
+		// After-reset delay for APIv1-v3
+		BYTE AlienfxWaitForBusy();
 
 	public:
 
-		bool powerMode = true; // current power mode for APIv1-v3
+		// current power mode for APIv1-v3
+		bool powerMode = true;
 
 		~Functions();
 
 		// Initialize device
 		// Returns PID of device used.
-		// If vid is 0, first device found into the system will be used, otherwise first device of this type.
-		// If pid is defined, device with vid/pid will be used.
-		int AlienFXInitialize(int vid, int pid = -1);
+		// If vid is 0, first device found into the system will be used, otherwise first device of this VID.
+		// If pid is defined, device with vid/pid will be used, fist found otherwise.
+		int AlienFXInitialize(int vidd = -1, int pidd = -1);
 
+		// Check device and initialize path and vid/pid
+		// in case vid/pid -1 or absent, any vid/pid acceptable
+		// Returns PID of device if ok, -1 otherwise
+		int AlienFXCheckDevice(string devPath, int vid = -1, int pid = -1);
+
+#ifndef NOACPILIGHTS
 		// Another init function, for Aurora ACPI init.
 		// acc is a handle to low-level ACPI driver (hwacc.sys) interface - see alienfan project.
-		int AlienFXInitialize(HANDLE acc);
-
-		// Switch to other AlienFX device
-		bool AlienFXChangeDevice(int vid, int pid, HANDLE acc = NULL);
+		int AlienFXInitialize(AlienFan_SDK::Control* acc);
+#endif
 
 		// Prepare to set lights
 		bool Reset();
@@ -172,12 +187,12 @@ namespace AlienFX_SDK {
 		// Set multiply lights to the same color. This only works for new API devices, and emulated for old ones.
 		// lights - pointer to vector of light IDs need to be set.
 		// c - color to set (brightness ignored)
-		bool SetMultiLights(vector<byte> *lights, Colorcode c);
+		bool SetMultiColor(vector<byte> *lights, Colorcode c);
 
 		// Set multiply lights to different color.
 		// act - pointer to vector of light control blocks
 		// store - need to save settings into device memory (v1-v4)
-		bool SetMultiColor(vector<act_block> *act, bool store = false);
+		bool SetMultiAction(vector<act_block> *act, bool store = false);
 
 		// Set color to action
 		// act - pointer to light control block
@@ -201,15 +216,6 @@ namespace AlienFX_SDK {
 		// act2 - second effect color (not for all effects)
 		bool SetGlobalEffects(byte effType, byte mode, byte tempo, afx_act act1, afx_act act2);
 
-		// return current device state
-		BYTE AlienfxGetDeviceStatus();
-
-		// Next command delay for APIv1-v3
-		BYTE AlienfxWaitForReady();
-
-		// After-reset delay for APIv1-v3
-		BYTE AlienfxWaitForBusy();
-
 		// Apply changes and update colors
 		bool UpdateColors();
 
@@ -217,12 +223,15 @@ namespace AlienFX_SDK {
 		int GetPID();
 
 		// get VID for current device
-		int GetVid();
+		int GetVID();
 
 		// get API version for current device
 		int GetVersion();
 
-		// check global effects avaliability
+		// get data length for current device
+		int GetLength();
+
+		// check global effects availability
 		bool IsHaveGlobal();
 	};
 
@@ -235,6 +244,11 @@ namespace AlienFX_SDK {
 		vector <mapping> lights;
 	};
 
+	struct enum_device {
+		WORD vid, pid;
+		string path;
+	};
+
 	class Mappings {
 	private:
 		vector <group> groups; // Defined light groups
@@ -243,15 +257,17 @@ namespace AlienFX_SDK {
 	public:
 
 		vector<afx_device> fxdevs; // main devices/mappings array
-		int activeLights = 0; // total active lights into the system
+		int activeLights = 0,  // total number of active lights into the system
+			activeDevices = 0; // total number of active devices
 
 		~Mappings();
 
 		// Enumerate all alienware devices into the system
-		vector<pair<WORD,WORD>> AlienFXEnumDevices();
+		vector<Functions*> AlienFXEnumDevices();
 
 		// Load device data and assign it to structure, as well as init devices and set brightness
-		void AlienFXAssignDevices(HANDLE acc = NULL, byte brightness=255, byte power=false);
+		// acc - link to AlienFan_SDK::Control object
+		void AlienFXAssignDevices(void* acc = NULL, byte brightness=255, byte power=false);
 
 		// load light names from registry
 		void LoadMappings();
@@ -259,11 +275,8 @@ namespace AlienFX_SDK {
 		// save light names into registry
 		void SaveMappings();
 
-		// get saved devices names
-		//vector<devmap>* GetDevices();
-
 		// get saved light names
-		vector <mapping>* GetMappings(DWORD devID);
+		vector <mapping>* GetMappings(WORD pid, WORD vid);
 
 		// get defined groups
 		vector <group>* GetGroups();
@@ -275,13 +288,13 @@ namespace AlienFX_SDK {
 		lightgrid* GetGridByID(byte id);
 
 		// get device structure by PID/VID (low/high WORD)
-		afx_device* GetDeviceById(DWORD devID);
+		afx_device* GetDeviceById(WORD pid, WORD vid);
 
-		// get or add device structure by PID/VID (low/high WORD)
-		afx_device* AddDeviceById(DWORD devID);
+		// get or add device structure by PID/VID
+		afx_device* AddDeviceById(WORD pid, WORD vid);
 
 		// find light mapping by PID (or PID/VID) and light ID
-		mapping* GetMappingById(afx_device* dev, WORD LightID);
+		mapping* GetMappingByDev(afx_device* dev, WORD LightID);
 
 		// find light group by it's ID
 		group* GetGroupById(DWORD gid);
