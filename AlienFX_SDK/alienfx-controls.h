@@ -7,17 +7,15 @@ namespace AlienFX_SDK {
 	//This is VIDs for different devices: Alienware (common), Darfon (RGB keyboards), Microship (monitors), Primax (mouses), Chicony (external keyboards)
 	//const static WORD vids[NUM_VIDS]{0x187c, 0x0d62, 0x0424, 0x0461, 0x04f2};
 
-	static struct COMMV1 {
+	static struct COMMV1 { // old devices
 		const byte reset[2]{0x07, 0x04};
+		// [2] - 0x1 - power & indi, 0x2 - sleep, 0x3 - off, 0x4 - on
 		const byte loop[1]{0x04};
 		const byte color[1]{0x03};
 		const byte update[1]{0x05};
 		const byte status[1]{0x06};
 		const byte saveGroup[1]{0x08};
-		const byte save[1]{0x09};
-		const byte apply[2]{0x1d, 0x03};
-		const byte setTempo[1]{0x0e};
-		// save group codes saveGroup[2]:
+		// save group codes for saveGroup[2]:
 		// 0x1 - lights
 		// 0x2 - ac charge (color, inverse mask after with index 2!) (morph ac-0, 0-ac)
 		// 0x5 - ac morph (ac-0)
@@ -26,13 +24,19 @@ namespace AlienFX_SDK {
 		// 0x8 - batt critical (morph batt-0)
 		// 0x9 - batt down (pulse batt-0)
 		// 0x2 0x0 - end storage block
-		// Reset 0x1 - power & indi, 0x2 - sleep, 0x3 - off, 0x4 - on
+		const byte save[1]{0x09};
+		const byte apply[2]{0x1d, 0x03};
+		const byte setTempo[1]{0x0e};
 	} COMMV1;
 
-	static struct COMMV4 {
-		const byte reset[6]{0x03 ,0x21 ,0x00 ,0x01 ,0xff ,0xff};
+	static struct COMMV4 { // common tron
+		const byte control[6]{ 0x03 ,0x21 ,0x00 ,0x03 ,0x00 ,0xff };
+		// [4] - control type (1..6), 3 - update, 1 - reset
+		// [5] - unknown. ff for reset, 0 for others
+		// [6] - control ID (ff for reset/update, 61 for light store?)
 		const byte colorSel[5]{0x03 ,0x23 ,0x01 ,0x00 ,0x01};
-		// [5] - COUNT of lights need to be set, [6-33] - LightID (index, not mask) - it can be COUNT of them.
+		// [5] - count of lights need to be set,
+		// [6-33] - LightID (index, not mask) - it can be COUNT of them.
 		const byte colorSet[7]{0x03 ,0x24 ,0x00 ,0x07 ,0xd0 ,0x00 ,0xfa};
 		// [3] - action type ( 0 - light, 1 - pulse, 2 - morph)
 		// [4] - how long phase keeps
@@ -41,16 +45,15 @@ namespace AlienFX_SDK {
 		// [8-10]    - rgb
 		// Then circle [11 - 17, 18 - 24, 25 - 31]
 		// It can be up to 3 colorSet for one colorSel.
-		const byte update[6]{0x03 ,0x21 ,0x00 ,0x03 ,0x00 ,0xff};
-		//{0x00, 0x03 ,0x21 ,0x00 ,0x03 ,0x00 ,0x00};
 		const byte setPower[6]{0x03 ,0x22 ,0x00, 0x04, 0x00, 0x5b};
 		const byte prepareTurn[3]{0x03, 0x20, 0x2};
 		const byte turnOn[2]{0x03, 0x26};
-		// 4 = 0x64 - off, 0x41 - dim, 0 - on, 6 - number, 7...31 - IDs (like colorSel)
-		// Unknown command codes : 0x20 0x2
+		// [4] - brightness (0..100),
+		// [5] - lights count
+		// [6-33] - light IDs (like colorSel)
 	} COMMV4;
 
-	static struct COMMV5 {
+	static struct COMMV5 { // notebook rgb keyboards
 		// Start command block
 		const byte reset[1]{0x94};
 		const byte status[1]{0x93};
@@ -91,7 +94,7 @@ namespace AlienFX_SDK {
 		//					 0xff, 0x00, 0x01};
 	} COMMV5;
 
-	static struct COMMV6 {
+	static struct COMMV6 { // monitors
 		//const byte systemReset[3]{0x93,0x37,0x0e};
 		//[3] - some command, can be 06 and 0e
 		const byte systemReset[4]{ 0x95,0,0,0 };
@@ -107,7 +110,7 @@ namespace AlienFX_SDK {
 		// 1,8c - [10,11,12] - RGB, [13,14,15] - RGB2, [16] - brightness, [17,18] - tempo, [19] - checksum
 	} COMMV6;
 
-	static struct COMMV7 {
+	static struct COMMV7 { // mouses
 		const byte update[8]{0x40,0x60,0x07,0x00,0xc0,0x4e,0x00,0x01};
 		//[8] = 1 - update finish, [9] = 1 - update color (after set)
 		const byte status[5]{0x40,0x03,0x01,0x00,0x01};
@@ -115,7 +118,7 @@ namespace AlienFX_SDK {
 		//[5] - effect mode, [6] - brightness, [7] - lightID, [8..10] - rgb1, [11..13] - rgb2...
 	} COMMV7;
 
-	static struct COMMV8 {
+	static struct COMMV8 { // external keyboards
 		const byte effectReady[4]{0x5,0x1,0x51,0x00};
 		// [2] - profile number
 		const byte effectSet[14]{0x5,0x1,0x13,0x00,0xf0,0xf0,0x00,0x00,0x00,0x10,0x0a,0x00,0x01,0x01 };

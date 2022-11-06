@@ -116,7 +116,6 @@ namespace AlienFX_SDK {
 
 //#ifndef NOACPILIGHTS
 		void* device = NULL;
-		//AlienFan_SDK::Lights* device = NULL;
 //#endif
 
 		bool inSet = false;
@@ -135,6 +134,9 @@ namespace AlienFX_SDK {
 		// Support function to send data to USB device
 		bool PrepareAndSend(const byte *command, byte size, vector<icommand> *mods = NULL);
 		bool PrepareAndSend(const byte* command, byte size, vector<icommand> mods);
+
+		// Add new light effect block for v8
+		void AddDataBlock(byte pos, vector<icommand>* mods, act_block* act);
 
 		// Support function to send whole power block for v1-v3
 		bool SavePowerBlock(byte blID, act_block act, bool needSave, bool needInverse = false);
@@ -184,7 +186,7 @@ namespace AlienFX_SDK {
 		// basic color set with ID index for current device. loop - does it need loop command after?
 		bool SetColor(unsigned index, Colorcode c, bool loop = true);
 
-		// Set multiply lights to the same color. This only works for new API devices, and emulated for old ones.
+		// Set multiply lights to the same color. This only works for some API devices, and emulated for other ones.
 		// lights - pointer to vector of light IDs need to be set.
 		// c - color to set (brightness ignored)
 		bool SetMultiColor(vector<byte> *lights, Colorcode c);
@@ -263,7 +265,10 @@ namespace AlienFX_SDK {
 		~Mappings();
 
 		// Enumerate all alienware devices into the system
-		vector<Functions*> AlienFXEnumDevices();
+		// acc - link to AlienFan_SDK::Control object
+		vector<Functions*> AlienFXEnumDevices(void* acc);
+
+		void AlienFXApplyDevices(vector<Functions*> devList, byte brightness, byte power);
 
 		// Load device data and assign it to structure, as well as init devices and set brightness
 		// acc - link to AlienFan_SDK::Control object
