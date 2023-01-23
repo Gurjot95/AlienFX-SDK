@@ -50,8 +50,14 @@ namespace AlienFX_SDK {
 	};
 
 	struct Afx_light { // Light information block
-		WORD lightid;
-		WORD flags = 0;
+		WORD  lightid;
+		union {
+			struct {
+				WORD flags;
+				WORD scancode;
+			};
+			DWORD data;
+		};
 		string name;
 	};
 
@@ -108,8 +114,7 @@ namespace AlienFX_SDK {
 		AlienFX_A_Breathing= 3,
 		AlienFX_A_Spectrum = 4,
 		AlienFX_A_Rainbow = 5,
-		AlienFX_A_Power = 6/*,
-		AlienFX_A_NoAction = 7*/
+		AlienFX_A_Power = 6
 	};
 
 	class Functions
@@ -122,7 +127,6 @@ namespace AlienFX_SDK {
 		void* device = NULL;
 
 		bool inSet = false;
-		//bool inSave = false;
 
 		int vid = -1; // Device VID
 		int pid = -1; // Device PID, -1 if not initialized
@@ -144,6 +148,9 @@ namespace AlienFX_SDK {
 
 		// Support function to send whole power block for v1-v3
 		bool SavePowerBlock(byte blID, Afx_lightblock act, bool needSave, bool needInverse = false);
+
+		// Support function for APIv4 action set
+		bool SetV4Action(Afx_lightblock* act);
 
 		// return current device state
 		BYTE GetDeviceStatus();
@@ -202,7 +209,7 @@ namespace AlienFX_SDK {
 
 		// Set color to action
 		// act - pointer to light control block
-		bool SetAction(Afx_lightblock* act, bool ipe = true);
+		bool SetAction(Afx_lightblock* act);
 
 		// Set action for Power button and store other light colors as default
 		// act - pointer to vector of light control blocks
@@ -285,8 +292,8 @@ namespace AlienFX_SDK {
 		// save light names into registry
 		void SaveMappings();
 
-		// get saved light structures from device
-		vector <Afx_light>* GetMappings(WORD pid, WORD vid);
+		// get saved light structure by device ID and light ID
+		Afx_light* GetMappingByID(WORD pid, WORD vid);
 
 		// get defined groups vector
 		vector <Afx_group>* GetGroups();
@@ -299,7 +306,7 @@ namespace AlienFX_SDK {
 
 		// get device structure by PID/VID.
 		// VID can be zero for any VID
-		Afx_device* GetDeviceById(WORD pid, WORD vid);
+		Afx_device* GetDeviceById(WORD pid, WORD vid = 0);
 
 		// get or add device structure by PID/VID
 		// VID can be zero for any VID
