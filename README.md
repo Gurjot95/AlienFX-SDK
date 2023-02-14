@@ -13,10 +13,10 @@ Read more details about supported devices and models [here](https://github.com/T
 
 ### Supported device API versions:
 
-- ACPI-controlled lights - 3 lights, 8 bit/color (v0) - Aurora R6/R7. (using this API require AlienFan-SDK library from [AlienFX-Tools](https://github.com/T-Troll/alienfx-tools) project).
+- ACPI-controlled lights - 3 lights, 8 bit/color (v0) - Aurora R6/R7 (using this API require AlienFan-SDK library from [AlienFX-Tools](https://github.com/T-Troll/alienfx-tools) project).
 - 9 bytes 8 bit/color, reportID 2 control (v1) - Ancient notebooks (like m14x)
-- 9 bytes 4 bit/color, reportID 2 control (v2) - Older notebooks (like M13R1/R2)
-- 12 bytes 8 bit/color, reportID 2 control (v3) - Old notebooks (like M15R3)
+- 9 bytes 4 bit/color, reportID 2 control (v2) - Older notebooks (like 13R1/R2)
+- 12 bytes 8 bit/color, reportID 2 control (v3) - Old notebooks (like 15R5)
 - 34 bytes 8 bit/color, reportID 0 control (v4) - Modern notebooks/desktop (all m-series, x-series, Dell g-series, Aurora R8+)
 - 64 bytes 8 bit/color, featureID 0xcc control (v5) - Modern notebooks internal per-key RGB keyboard (all m- and x-series)
 - 65 bytes 8 bit/color, interrupt control (v6) - Mouses
