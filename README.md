@@ -2,8 +2,9 @@
 
 Better AlienFX/LightFX SDK than Dell official's one without any limitations:
 - Better performance. Update rate can be very high for modern devices.
-- Tiny footprint both in code and RAM
+- Tiny footprint both in code and RAM.
 - Full hardware features support - per-key and per-device effect set, hardware brightness, hardware power buttons.
+- Using direct hardware access, so no additional software requred.
 
 ### Supported devices:
 
