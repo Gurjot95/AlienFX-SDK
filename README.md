@@ -92,7 +92,7 @@ AlienFX_SDK::Afx_action c = {0,0,0,225,134,245};
 // Set color for LightID 2 at single device
 device.SetColor(3, c);
 // But SetColor is a wrapper for SetAction, so next line is equvivalent (also it use info_object devices list object)
-info_object.fxdevs[0].dev.SetAction(3, &c);
+info_object.fxdevs[0].dev->SetAction(3, &c);
 
 // Or set multiply lights at the same color
 vector<byte> lights = { 0,2,3,4,5 };
