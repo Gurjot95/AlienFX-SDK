@@ -5,8 +5,6 @@ extern "C" {
 #include <hidclass.h>
 #include <hidsdi.h>
 }
-#include <SetupAPI.h>
-#include <memory>
 
 #pragma comment(lib,"setupapi.lib")
 #pragma comment(lib, "hid.lib")
@@ -62,14 +60,14 @@ namespace AlienFX_SDK {
 	}
 
 	bool Functions::PrepareAndSend(const byte *command, vector<Afx_icommand> *mods) {
-		byte buffer[MAX_BUFFERSIZE]{ reportID };
+		byte buffer[MAX_BUFFERSIZE]{ reportIDList[version] };
 		DWORD written, size = command[0];
 		BOOL res = false;
 
-		FillMemory(buffer, MAX_BUFFERSIZE, version == API_V6 /*&& size != 3*/ ? 0xff : 0);
+		if (version == API_V6 /*&& size != 3*/)
+			FillMemory(buffer+1, MAX_BUFFERSIZE-1, 0xff);
 
 		memcpy(buffer+1, command+1, size);
-		//buffer[0] = reportID;
 
 		if (mods) {
 			for (auto i = mods->begin(); i < mods->end(); i++)
@@ -158,105 +156,93 @@ namespace AlienFX_SDK {
 		return true;
 	}
 
-	int Functions::AlienFXCheckDevice(string devPath, int vidd, int pidd)
-	{
-		if ((devHandle = CreateFile(devPath.c_str(), GENERIC_WRITE | GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-			OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN | SECURITY_ANONYMOUS/*FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH*/, NULL)) != INVALID_HANDLE_VALUE) {
+	bool Functions::ProbeDevice(HDEVINFO hDevInfo, SP_DEVICE_INTERFACE_DATA* devData, int vidd, int pidd) {
+		DWORD dwRequiredSize = 0;
+		bool flag = false;
+		SetupDiGetDeviceInterfaceDetail(hDevInfo, devData, NULL, 0, &dwRequiredSize, NULL);
+		SP_DEVICE_INTERFACE_DETAIL_DATA* deviceInterfaceDetailData = (SP_DEVICE_INTERFACE_DETAIL_DATA*)new byte[dwRequiredSize];
+		deviceInterfaceDetailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
+		if (SetupDiGetDeviceInterfaceDetail(hDevInfo, devData, deviceInterfaceDetailData, dwRequiredSize, NULL, NULL) &&
+			(devHandle = CreateFile(deviceInterfaceDetailData->DevicePath, GENERIC_WRITE | GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+				OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN | SECURITY_ANONYMOUS/*FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH*/, NULL)) != INVALID_HANDLE_VALUE) {
 			PHIDP_PREPARSED_DATA prep_caps;
 			HIDP_CAPS caps;
-			std::unique_ptr<HIDD_ATTRIBUTES> attributes(new HIDD_ATTRIBUTES({ sizeof(HIDD_ATTRIBUTES) }));
-			if (HidD_GetAttributes(devHandle, attributes.get()) &&
-				(vidd == -1 || attributes->VendorID == vidd) && (pidd == -1 || attributes->ProductID == pidd)) {
+			HIDD_ATTRIBUTES attributes{ sizeof(HIDD_ATTRIBUTES) };
+			if (HidD_GetAttributes(devHandle, &attributes) &&
+				(vidd == -1 || attributes.VendorID == vidd) && (pidd == -1 || attributes.ProductID == pidd)) {
 				HidD_GetPreparsedData(devHandle, &prep_caps);
 				HidP_GetCaps(prep_caps, &caps);
 				HidD_FreePreparsedData(prep_caps);
 				length = caps.OutputReportByteLength;
-				vid = attributes->VendorID;
-				pid = attributes->ProductID;
-				switch (length) {
-				case 0: {
-					if (caps.Usage == 0xcc && vid == 0x0d62) {
+				vid = attributes.VendorID;
+				switch (vid) {
+				case 0x0d62: // Darfon
+					if (caps.Usage == 0xcc && !length) {
 						length = caps.FeatureReportByteLength;
 						version = API_V5;
-						reportID = 0xcc;
 					}
-				} break;
-				case 8:
-					if (vid == 0x187c) {
+					break;
+				case 0x187c: // Alienware
+					switch (length) {
+					case 8:
 						version = API_V1;
-						reportID = 2;
-					}
-					break;
-				case 9:
-					if (vid == 0x187c) {
+						break;
+					case 9:
 						version = API_V2;
-						reportID = 2;
-					}
-					break;
-				case 12:
-					if (vid == 0x187c) {
+						break;
+					case 12:
 						version = API_V3;
-						reportID = 2;
-					}
-					break;
-				case 34:
-					if (vid == 0x187c) {
+						break;
+					case 34:
 						version = API_V4;
-						reportID = 0;
-					}
-					break;
-				case 65:
-					switch (vid) {
-					case 0x0424: case 0x187c:
+						break;
+					case 65:
 						version = API_V6;
-						reportID = 0;
 						// device init
 						PrepareAndSend(COMMV6_systemReset);
 						break;
-					case 0x0461:
+					}
+					break;
+				case 0x0424: // Microchip
+					if (length == 65) {
+						version = API_V6;
+						// device init
+						PrepareAndSend(COMMV6_systemReset);
+					}
+					break;
+				case 0x0461: // Primax
+					if (length == 65) {
 						version = API_V7;
-						reportID = 0;
-						break;
-					case 0x04f2:
+					}
+					break;
+				case 0x04f2:  // Chicony
+					if (length == 65) {
 						version = API_V8;
-						reportID = 0xe;
-						break;
 					}
 					break;
 				}
+				if (flag = (version != API_UNKNOWN))
+					pid = attributes.ProductID;
+				else {
+					CloseHandle(devHandle); devHandle = NULL;
+				}
 			}
-			attributes.release();
-			if (version < 0) {
-				CloseHandle(devHandle); devHandle = NULL;
-			}
-			else
-				return pid;
 		}
-		return -1;
+		delete[] deviceInterfaceDetailData;
+		return flag;
 	}
 
 	//Use this method for general devices, vid = -1 for any vid, pid = -1 for any pid.
 	int Functions::AlienFXInitialize(int vidd, int pidd) {
 		GUID guid;
-		bool flag = true;
-		pid = -1;
-		DWORD dw = 0;
+		DWORD dwRequiredSize = 0;
 		SP_DEVICE_INTERFACE_DATA deviceInterfaceData{ sizeof(SP_DEVICE_INTERFACE_DATA) };
 
 		HidD_GetHidGuid(&guid);
 		HDEVINFO hDevInfo = SetupDiGetClassDevs(&guid, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
 		if (hDevInfo != INVALID_HANDLE_VALUE) {
-			while (flag && SetupDiEnumDeviceInterfaces(hDevInfo, NULL, &guid, dw, &deviceInterfaceData)) {
-				dw++;
-				DWORD dwRequiredSize = 0;
-				SetupDiGetDeviceInterfaceDetail(hDevInfo, &deviceInterfaceData, NULL, 0, &dwRequiredSize, NULL);
-				std::unique_ptr<SP_DEVICE_INTERFACE_DETAIL_DATA> deviceInterfaceDetailData((SP_DEVICE_INTERFACE_DETAIL_DATA*)new byte[dwRequiredSize]);
-				deviceInterfaceDetailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
-				if (SetupDiGetDeviceInterfaceDetail(hDevInfo, &deviceInterfaceData, deviceInterfaceDetailData.get(), dwRequiredSize, NULL, NULL)) {
-					flag = AlienFXCheckDevice(deviceInterfaceDetailData->DevicePath, vidd, pidd) < 0;
-				}
-				deviceInterfaceDetailData.release();
-			}
+			for (DWORD dw = 0; SetupDiEnumDeviceInterfaces(hDevInfo, NULL, &guid, dw, &deviceInterfaceData) &&
+				!ProbeDevice(hDevInfo, &deviceInterfaceData, vidd, pidd); dw++) ;
 			SetupDiDestroyDeviceInfoList(hDevInfo);
 		}
 		return pid;
@@ -265,7 +251,8 @@ namespace AlienFX_SDK {
 #ifndef NOACPILIGHTS
 	int Functions::AlienFXInitialize(AlienFan_SDK::Control* acc) {
 		if (acc) {
-			vid = pid = 0xffff;
+			vid = 0x187c;
+			pid = 0xffff;
 			version = API_ACPI;
 			device = new AlienFan_SDK::Lights(acc);
 			if (((AlienFan_SDK::Lights*)device)->isActivated)
@@ -295,8 +282,7 @@ namespace AlienFX_SDK {
 			chain = 1;
 		} break;
 		}
-		inSet = result;
-		return result;
+		return inSet = result;
 	}
 
 	bool Functions::UpdateColors() {
@@ -500,11 +486,10 @@ namespace AlienFX_SDK {
 
 		if (!inSet) Reset();
 		switch (version) {
-		case API_V8: {
+		case API_V8:
 			AddV8DataBlock(5, &mods, index, act);
 			PrepareAndSend(COMMV8_readyToColor);
 			return PrepareAndSend(COMMV8_colorSet, &mods);
-		}
 		case API_V7:
 		{
 			mods = {{5,v7OpCodes[act->front().type]},{6,bright},{7,index}};
@@ -523,13 +508,10 @@ namespace AlienFX_SDK {
 				{ act->back().b, act->back().g, act->back().r },
 				act->front().tempo));
 		case API_V5:
-		{
 			AddV5DataBlock(4, &mods, index, &act->front());
 			PrepareAndSend(COMMV5_colorSet, &mods);
 			return PrepareAndSend(COMMV5_loop);
-		}
 		case API_V4:
-		{
 			// check types and call
 			switch (act->front().type) {
 			case AlienFX_A_Color: // it's a color, so set as color
@@ -541,7 +523,6 @@ namespace AlienFX_SDK {
 			default: // Set action
 				return SetV4Action(index, act);
 			}
-		}
 		case API_V3: case API_V2: case API_V1:
 		{
 			bool res = false;
@@ -570,8 +551,6 @@ namespace AlienFX_SDK {
 				}
 				if (act->size() > 1)
 					c2 = (ca != act->end() - 1) ? *(ca + 1) : act->front();
-						//Afx_colorcode{ (ca+1)->b, (ca+1)->g, (ca+1)->r } :
-						//Afx_colorcode{ act->front().b, act->front().g, act->front().r };
 				PrepareAndSend(COMMV1_color, SetMaskAndColor(1 << index, actmode, *ca, c2));
 			}
 			res = PrepareAndSend(COMMV1_loop);
@@ -583,8 +562,8 @@ namespace AlienFX_SDK {
 			return ((AlienFan_SDK::Lights*)device)->SetColor(1 << index, act->front().r, act->front().g, act->front().b);
 			break;
 #endif
-		default: return false;
 		}
+		return false;
 	}
 
 	bool Functions::SetPowerAction(vector<Afx_lightblock> *act, bool save) {
@@ -708,7 +687,7 @@ namespace AlienFX_SDK {
 		return true;
 	}
 
-	bool Functions::ToggleState(BYTE brightness, vector<Afx_light> *mappings, bool power) {
+	bool Functions::SetBrightness(BYTE brightness, vector<Afx_light> *mappings, bool power) {
 
 #ifdef _DEBUG
 		char buff[2048];
@@ -717,20 +696,20 @@ namespace AlienFX_SDK {
 		OutputDebugString(buff);
 #endif
 
-		bright = ((UINT) brightness * 0x64) / 0xff;
+		bright = ((UINT)brightness * 0x64) / 0xff;
 		if (inSet) UpdateColors();
 		switch (version) {
 		case API_V8: {
 			bright = brightness * 10 / 0xff;
 			return PrepareAndSend(COMMV8_setBrightness, { {2, bright} });
-		} break;
+		}
 		case API_V5:
 		{
 			Reset();
 			PrepareAndSend(COMMV5_turnOnInit);
 			PrepareAndSend(COMMV5_turnOnInit2);
 			return PrepareAndSend(COMMV5_turnOnSet, {{4,brightness}});
-		} break;
+		}
 		case API_V4:
 		{
 			vector<Afx_icommand> mods{{3,(byte)(0x64 - bright)}};
@@ -742,13 +721,13 @@ namespace AlienFX_SDK {
 				}
 			mods.push_back({5,pindex});
 			return PrepareAndSend(COMMV4_turnOn,  &mods);
-		} break;
+		}
 		case API_V3: case API_V1: case API_V2:
 		{
-			int res = PrepareAndSend(COMMV1_reset, {{2,(byte)(brightness? 4 : power? 3 : 1)}});
+			int res = PrepareAndSend(COMMV1_reset, {{2,(byte)(brightness ? 4 : power ? 3 : 1)}});
 			WaitForReady();
 			return res;
-		} break;
+		}
 #ifndef NOACPILIGHTS
 		case API_ACPI:
 			bright = brightness * 0xf / 0xff;
@@ -793,7 +772,7 @@ namespace AlienFX_SDK {
 
 	BYTE Functions::GetDeviceStatus() {
 
-		byte buffer[MAX_BUFFERSIZE]{reportID};
+		byte buffer[MAX_BUFFERSIZE]{reportIDList[version]};
 		DWORD written;
 		switch (version) {
 		case API_V5:
@@ -818,7 +797,6 @@ namespace AlienFX_SDK {
 		case API_V3: case API_V2: case API_V1:
 		{
 			PrepareAndSend(COMMV1_status);
-
 			buffer[0] = 0x01;
 			//HidD_GetInputReport(devHandle, buffer, length);
 			if (DeviceIoControl(devHandle, IOCTL_HID_GET_INPUT_REPORT, 0, 0, buffer, length, &written, NULL))
@@ -921,30 +899,22 @@ namespace AlienFX_SDK {
 		HidD_GetHidGuid(&guid);
 		HDEVINFO hDevInfo = SetupDiGetClassDevs(&guid, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
 		if (hDevInfo != INVALID_HANDLE_VALUE) {
-			DWORD dw = 0;
 			SP_DEVICE_INTERFACE_DATA deviceInterfaceData{ sizeof(SP_DEVICE_INTERFACE_DATA) };
-			while (SetupDiEnumDeviceInterfaces(hDevInfo, NULL, &guid, dw, &deviceInterfaceData)) {
-				dw++;
-				DWORD dwRequiredSize = 0;
-				SetupDiGetDeviceInterfaceDetail(hDevInfo, &deviceInterfaceData, NULL, 0, &dwRequiredSize, NULL);
-				std::unique_ptr<SP_DEVICE_INTERFACE_DETAIL_DATA> deviceInterfaceDetailData((SP_DEVICE_INTERFACE_DETAIL_DATA*)new char[dwRequiredSize]);
-				deviceInterfaceDetailData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
-				if (SetupDiGetDeviceInterfaceDetail(hDevInfo, &deviceInterfaceData, deviceInterfaceDetailData.get(), dwRequiredSize, NULL, NULL)) {
-					Functions* dev = new Functions();
-					if (dev->AlienFXCheckDevice(deviceInterfaceDetailData->DevicePath) < 0)
-						delete dev;
-					else {
-						devs.push_back(dev);
+			for (DWORD dw = 0; SetupDiEnumDeviceInterfaces(hDevInfo, NULL, &guid, dw, &deviceInterfaceData); dw++) {
+				Functions* dev = new Functions();
+				if (dev->ProbeDevice(hDevInfo, &deviceInterfaceData))
+				{
+					devs.push_back(dev);
 #ifdef _DEBUG
-						char buff[2048];
-						sprintf_s(buff, 2047, "Scan: VID: %#x, PID: %#x, Version: %d\n",
-							dev->GetVID(), dev->GetPID(), dev->GetVersion());
-						OutputDebugString(buff);
-						printf("%s", buff);
+					char buff[2048];
+					sprintf_s(buff, 2047, "Scan: VID: %#x, PID: %#x, Version: %d\n",
+						dev->GetVID(), dev->GetPID(), dev->GetVersion());
+					OutputDebugString(buff);
+					printf("%s", buff);
 #endif
-					}
 				}
-				deviceInterfaceDetailData.release();
+				else
+					delete dev;
 			}
 			SetupDiDestroyDeviceInfoList(hDevInfo);
 		}
@@ -991,7 +961,8 @@ namespace AlienFX_SDK {
 			Afx_device* dev = AddDeviceById((*i)->GetPID(), (*i)->GetVID());
 			if (!dev->dev) {
 				dev->dev = *i;
-				dev->dev->ToggleState(brightness, &dev->lights, power);
+				dev->version = (*i)->GetVersion();
+				dev->dev->SetBrightness(brightness, &dev->lights, power);
 			}
 			activeLights += (int)dev->lights.size();
 		}
@@ -1128,9 +1099,10 @@ namespace AlienFX_SDK {
 
 		for (auto i = fxdevs.begin(); i != fxdevs.end(); i++) {
 			// Saving device data..
-			string name = "Dev#" + to_string(i->vid) + "_" + to_string(i->pid);
+			string devID = to_string(i->vid) + "_" + to_string(i->pid);
+			string name = "Dev#" + devID;
 			RegSetValueEx(hKeybase, name.c_str(), 0, REG_SZ, (BYTE *) i->name.c_str(), (DWORD) i->name.length() );
-			name = "DevWhite#" + to_string(i->vid) + "_" + to_string(i->pid);
+			name = "DevWhite#" + devID;
 			RegSetValueEx(hKeybase, name.c_str(), 0, REG_DWORD, (BYTE *) &i->white.ci, sizeof(DWORD));
 			for (auto cl = i->lights.begin(); cl < i->lights.end(); cl++) {
 				// Saving all lights from current device
