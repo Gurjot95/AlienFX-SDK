@@ -2,7 +2,6 @@
 #include <wtypes.h>
 #include <vector>
 #include <string>
-#include <SetupAPI.h>
 
 #ifndef NOACPILIGHTS
 #include "alienfan-SDK.h"
@@ -13,7 +12,6 @@ using namespace std;
 namespace AlienFX_SDK {
 
 	// Statuses for v1-v3
-	#define ALIENFX_V2_RESET 0x06
 	#define ALIENFX_V2_READY 0x10
 	#define ALIENFX_V2_BUSY 0x11
 	#define ALIENFX_V2_UNKNOWN 0x12
@@ -29,8 +27,8 @@ namespace AlienFX_SDK {
     #define ALIENFX_V5_INCOMMAND 0xcc
 
 	// Mapping flags:
-    #define ALIENFX_FLAG_POWER		1
-    #define ALIENFX_FLAG_INDICATOR	2
+    #define ALIENFX_FLAG_POWER		1 // This is power button
+    #define ALIENFX_FLAG_INDICATOR	2 // This is indicator light (keep at lights off)
 
 	// Maximal buffer size across all device types
     #define MAX_BUFFERSIZE 65
@@ -102,7 +100,6 @@ namespace AlienFX_SDK {
 		API_V4 = 4, //34
 		API_V3 = 3, //12
 		API_V2 = 2, //9
-		API_V1 = 1, //8
 		API_UNKNOWN = -1
 	};
 
@@ -120,17 +117,13 @@ namespace AlienFX_SDK {
 	{
 	private:
 
-		HANDLE devHandle = NULL; // USB device handle
-		void* device = NULL;	 // ACPI device object pointer
+		HANDLE devHandle = NULL; // USB device handle, NULL if not initialized
+		void* ACPIdevice = NULL; // ACPI device object pointer
 
 		bool inSet = false;
 
-		int vid = -1; // Device VID
-		int pid = -1; // Device PID, -1 if not initialized
 		int length = -1; // HID report length
 		byte chain = 1; // seq. number for APIv1-v3
-		int version = API_UNKNOWN; // interface version
-		//byte reportID = 0; // HID ReportID (0 for auto)
 		byte bright = 64; // Brightness for some APIs (APIv4 and v6)
 
 		// support function for mask-based devices (v1-v3, v6)
@@ -162,27 +155,27 @@ namespace AlienFX_SDK {
 		BYTE WaitForBusy();
 
 	public:
-
-		// current power mode (AC/Battery) for APIv1-v3
-		bool powerMode = true;
+		WORD vid = 0; // Device VID
+		WORD pid = 0; // Device PID
+		int version = API_UNKNOWN; // interface version, will stay at API_UNKNOWN if not initialized
 
 		~Functions();
 
 		// Initialize device
-		// If vid is -1 or absent, first device found into the system will be used, otherwise device with this VID only.
-		// If pid is -1 or absent, first device with any pid and given vid will be used, otherwise vid/pid pair.
-		// Returns PID of device found, -1 if fail.
-		int AlienFXInitialize(int vidd = -1, int pidd = -1);
+		// If vid is 0 or absent, first device found into the system will be used, otherwise device with this VID only.
+		// If pid is 0 or absent, first device with any pid and given vid will be used, otherwise vid/pid pair.
+		// Returns true if device found and initialized.
+		bool AlienFXInitialize(WORD vidd = 0, WORD pidd = 0);
 
 		// Check device and initialize data
 		// vid/pid the same as above
-		// Returns true if device found and initialize
-		bool ProbeDevice(HDEVINFO hDevInfo, SP_DEVICE_INTERFACE_DATA* devData, int vid = -1, int pid = -1);
+		// Returns true if device found and initialized.
+		bool AlienFXProbeDevice(void* hDevInfo, void* devData, WORD vid = 0, WORD pid = 0);
 
 #ifndef NOACPILIGHTS
 		// Initialize Aurora ACPI lights if present.
 		// acc is a pointer to active AlienFan control object (see AlienFan_SDK for reference)
-		int AlienFXInitialize(AlienFan_SDK::Control* acc);
+		bool AlienFXInitialize(AlienFan_SDK::Control* acc);
 #endif
 
 		// Prepare to set lights
@@ -233,17 +226,14 @@ namespace AlienFX_SDK {
 		// Apply changes and update colors
 		bool UpdateColors();
 
-		// get PID for current device
-		int GetPID();
+		//// get PID for current device
+		//int GetPID();
 
-		// get VID for current device
-		int GetVID();
+		//// get VID for current device
+		//int GetVID();
 
-		// get API version for current device
-		int GetVersion();
-
-		// get data length for current device
-		int GetLength();
+		//// get API version for current device
+		//int GetVersion();
 
 		// check global effects availability
 		bool IsHaveGlobal();
@@ -279,16 +269,12 @@ namespace AlienFX_SDK {
 		// Apply device vector to fxdevs structure
 		// activeOnly - clear inactive devices from list
 		// devList - list of active devices
-		// brightness - default device brightness
-		// power - set brightness to power/indicator lights as well
-		void AlienFXApplyDevices(bool activeOnly, vector<Functions*> devList, byte brightness, bool power);
+		void AlienFXApplyDevices(bool activeOnly, vector<Functions*> devList);
 
 		// Load device data and assign it to structure, as well as init devices and set brightness
 		// activeOnly - clear inactive devices from list
-		// acc - link to AlienFan_SDK::Control object
-		// brightness - default device brightness
-		// power - set brightness to power/indicator lights as well
-		void AlienFXAssignDevices(bool activeOnly = true, void* acc = NULL, byte brightness=255, bool power=false);
+		// acc - pointer to AlienFan_SDK::Control object for ACPI lights
+		void AlienFXAssignDevices(bool activeOnly = true, void* acc = NULL);
 
 		// load light names from registry
 		void LoadMappings();
