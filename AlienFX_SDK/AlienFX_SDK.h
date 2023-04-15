@@ -69,7 +69,7 @@ namespace AlienFX_SDK {
 		DWORD gid;
 		string name;
 		vector<Afx_groupLight> lights;
-		bool have_power = false;
+		//bool have_power = false;
 	};
 
 	struct Afx_grid {
@@ -124,26 +124,25 @@ namespace AlienFX_SDK {
 
 		int length = -1; // HID report length
 		byte chain = 1; // seq. number for APIv1-v3
-		byte bright = 64; // Brightness for some APIs (APIv4 and v6)
 
 		// support function for mask-based devices (v1-v3, v6)
-		vector<Afx_icommand>* SetMaskAndColor(DWORD index, byte type, Afx_action c1, Afx_action c2 = { 0 }, byte tempo = 0);
+		vector<Afx_icommand>* SetMaskAndColor(vector<Afx_icommand>* mods, DWORD index, Afx_action c1, Afx_action c2 = { 0 }, byte tempo = 0);
 
 		// Support function to send data to USB device
-		bool PrepareAndSend(const byte *command, vector<Afx_icommand> *mods = NULL);
 		bool PrepareAndSend(const byte* command, vector<Afx_icommand> mods);
+		bool PrepareAndSend(const byte* command, vector<Afx_icommand> *mods = NULL);
 
 		// Add new light effect block for v8
-		byte AddV8DataBlock(byte bPos, vector<Afx_icommand>* mods, byte index, vector<Afx_action>* act);
+		void AddV8DataBlock(byte bPos, vector<Afx_icommand>* mods, Afx_lightblock* act);
 
 		// Add new color block for v5
-		byte AddV5DataBlock(byte bPos, vector<Afx_icommand>* mods, byte index, Afx_action* act);
+		void AddV5DataBlock(byte bPos, vector<Afx_icommand>* mods, byte index, Afx_action* act);
 
 		// Support function to send whole power block for v1-v3
 		bool SavePowerBlock(byte blID, Afx_lightblock* act, bool needSave, bool needInverse = false);
 
 		// Support function for APIv4 action set
-		bool SetV4Action(byte index, vector<Afx_action>* act);
+		bool SetV4Action(Afx_lightblock* act);
 
 		// return current device state
 		BYTE GetDeviceStatus();
@@ -158,6 +157,8 @@ namespace AlienFX_SDK {
 		WORD vid = 0; // Device VID
 		WORD pid = 0; // Device PID
 		int version = API_UNKNOWN; // interface version, will stay at API_UNKNOWN if not initialized
+		byte bright = 64; // Last brightness set for device
+		string description; // device description
 
 		~Functions();
 
@@ -203,7 +204,7 @@ namespace AlienFX_SDK {
 		// Set color to action
 		// index - light ID
 		// act - pointer to light actions vector
-		bool SetAction(byte index, vector<Afx_action>* act);
+		bool SetAction(Afx_lightblock* act);
 
 		// Set action for Power button and store other light colors as default
 		// act - pointer to vector of light control blocks
@@ -218,10 +219,11 @@ namespace AlienFX_SDK {
 		// Global (whole device) effect control for APIv5, v8
 		// effType - effect type
 		// mode - effect mode (off, steady, keypress, etc)
+		// nc - number of colors (3 - spectrum)
 		// tempo - effect tempo
 		// act1 - first effect color
 		// act2 - second effect color (not for all effects)
-		bool SetGlobalEffects(byte effType, byte mode, byte tempo, Afx_action act1, Afx_action act2);
+		bool SetGlobalEffects(byte effType, byte mode, byte nc, byte tempo, Afx_action act1, Afx_action act2);
 
 		// Apply changes and update colors
 		bool UpdateColors();
@@ -240,7 +242,12 @@ namespace AlienFX_SDK {
 	};
 
 	struct Afx_device { // Single device data
-		WORD vid, pid;			// IDs
+		union {
+			struct {
+				WORD pid, vid;			// IDs
+			};
+			DWORD devID;
+		};
 		Functions* dev = NULL;  // device control object pointer
 		string name;			// device name
 		Afx_colorcode white = { 255,255,255 }; // white point
@@ -250,8 +257,8 @@ namespace AlienFX_SDK {
 
 	class Mappings {
 	private:
-		vector <Afx_group> groups; // Defined light groups
-		vector <Afx_grid> grids; // Grid zones info
+		vector<Afx_group> groups; // Defined light groups
+		vector<Afx_grid> grids; // Grid zones info
 
 	public:
 
@@ -289,7 +296,7 @@ namespace AlienFX_SDK {
 		vector <Afx_group>* GetGroups();
 
 		// get defined grids vector
-		vector <Afx_grid>* GetGrids() { return &grids; };
+		vector<Afx_grid>* GetGrids() { return &grids; };
 
 		// get grid object by it's ID
 		Afx_grid* GetGridByID(byte id);
