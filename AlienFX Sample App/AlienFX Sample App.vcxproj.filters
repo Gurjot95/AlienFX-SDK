@@ -15,29 +15,8 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="stdafx.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="targetver.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="AlienFX_SDK.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="stdafx.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="AlienFX Sample App.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\x64\Release\AlienFX_SDK.dll" />
-    <None Include="..\x64\Release\AlienFX Sample App.pdb" />
-  </ItemGroup>
-  <ItemGroup>
-    <Library Include="..\x64\Release\AlienFX_SDK.lib" />
   </ItemGroup>
 </Project>
